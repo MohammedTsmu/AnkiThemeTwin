@@ -82,7 +82,9 @@ PALETTES = {
     "true_black": TRUE_BLACK,
 }
 
-def palette_for(theme: Theme): return PALETTES[theme]
+def palette_for(theme: Theme) -> dict:
+    """Return the color palette dictionary for the given theme."""
+    return PALETTES[theme]
 
 def normalize_theme(t: str) -> Theme:
     legacy = {"sepia":"sepia_word","gray":"gray_word","dark":"dark_neutral_soft"}
@@ -544,15 +546,18 @@ def apply_qt_styles(theme: Theme):
 
 # ---------------- Instant refresh ----------------
 def _build_refresh_js(theme: Theme) -> str:
+    """Build JavaScript to refresh CSS in webviews safely using JSON escaping."""
+    import json
     css = css_vars(palette_for(theme))
-    # Escape backticks and ${} for JS template literal safety
-    css_escaped = css.replace("\\", "\\\\").replace("`", "\\`").replace("${", "$\\{")
+    # Use JSON encoding for safe JavaScript string escaping
+    css_json = json.dumps(css)
+    style_id_json = json.dumps(_STYLE_ID)
     return (
         "(function(){"
-        f"var id='{_STYLE_ID}';"
+        f"var id={style_id_json};"
         "var el=document.getElementById(id);"
         "if(!el){el=document.createElement('style');el.id=id;document.head.appendChild(el);}"
-        f"el.textContent=`{css_escaped}`;"
+        f"el.textContent={css_json};"
         "})();"
     )
 
@@ -565,8 +570,9 @@ def refresh_all_webviews():
         if wv:
             try:
                 wv.eval(js)
-            except (RuntimeError, AttributeError):
-                # WebView might be closed or not ready
+            except (RuntimeError, AttributeError) as e:
+                # WebView might be closed or not ready - safe to ignore
+                # Uncomment for debugging: print(f"AnkiThemeTwin: {e}")
                 pass
 
 def apply_theme_everywhere(theme: Theme):
@@ -662,7 +668,10 @@ def set_dark_theme(theme: Theme):
         apply_theme_everywhere(theme)
 
 def set_font_size(size: int):
-    """Set the font size and refresh all views."""
+    """Set the font size and refresh all views. Valid range: 8-72px."""
+    # Validate font size to prevent unreasonable values
+    if not (8 <= size <= 72):
+        size = 16  # Default fallback
     cfg = get_config()
     cfg["fontSize"] = size
     write_config(cfg)
