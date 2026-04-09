@@ -53,21 +53,21 @@ GRAY_PAPER = {"bg":"#D9D9D9","fg":"#1C1C1C","muted":"#3F3F3F","border":"#BFBFBF"
 SEPIA_SPECIAL = {"bg":"#EEDFC6","fg":"#201A16","muted":"#54483F","border":"#CDB99F",
     "accent":"#6D523F","button":"#E6D3B7","buttonText":"#201A16",
     "input":"#FAF2E4","inputText":"#201A16","hover":"#DFC9A9","selection":"#D2BC9C"}
-DARK_WARM_SOFT = {"bg":"#2F2A27","fg":"#F5F2ED","muted":"#D1C7BC","border":"#6B5E55",
-    "accent":"#FFD8A0","button":"#3A332F","buttonText":"#F5F2ED",
-    "input":"#3A332F","inputText":"#F5F2ED","hover":"#3F3833","selection":"#5A5048"}
-DARK_NEUTRAL_SOFT = {"bg":"#303030","fg":"#F2F2F2","muted":"#CFCFCF","border":"#5A5A5A",
-    "accent":"#80B9FF","button":"#3A3A3A","buttonText":"#F2F2F2",
-    "input":"#3A3A3A","inputText":"#F2F2F2","hover":"#404040","selection":"#5A5A5A"}
+DARK_WARM_SOFT = {"bg":"#3D3530","fg":"#F5F1EA","muted":"#B8AEA3","border":"#7A6D60",
+    "accent":"#FDB863","button":"#4A4038","buttonText":"#F5F1EA",
+    "input":"#322D29","inputText":"#F5F1EA","hover":"#524940","selection":"#6B5E52"}
+DARK_NEUTRAL_SOFT = {"bg":"#2B2B2B","fg":"#E8E8E8","muted":"#9E9E9E","border":"#4A4A4A",
+    "accent":"#5B9EFF","button":"#3A3A3A","buttonText":"#E8E8E8",
+    "input":"#242424","inputText":"#E8E8E8","hover":"#3F3F3F","selection":"#4F4F4F"}
 BLUE_LIGHT = {"bg":"#E8F0F8","fg":"#1A2330","muted":"#4A5568","border":"#C5D5E5",
     "accent":"#2C5AA0","button":"#DDE8F5","buttonText":"#1A2330",
     "input":"#F5F8FC","inputText":"#1A2330","hover":"#D5E3F2","selection":"#C0D8ED"}
 OLIVE_GREEN = {"bg":"#EBF0E4","fg":"#2A2F24","muted":"#4F5449","border":"#D0D9C5",
     "accent":"#5A7A3C","button":"#E2EAD8","buttonText":"#2A2F24",
     "input":"#F5F8F0","inputText":"#2A2F24","hover":"#DDE7D0","selection":"#D0DFBC"}
-TRUE_BLACK = {"bg":"#000000","fg":"#E8E8E8","muted":"#B8B8B8","border":"#404040",
-    "accent":"#60A5FA","button":"#1A1A1A","buttonText":"#E8E8E8",
-    "input":"#0D0D0D","inputText":"#E8E8E8","hover":"#1F1F1F","selection":"#2A2A2A"}
+TRUE_BLACK = {"bg":"#0A0A0A","fg":"#E5E5E5","muted":"#A0A0A0","border":"#303030",
+    "accent":"#4A9EFF","button":"#1C1C1C","buttonText":"#E5E5E5",
+    "input":"#141414","inputText":"#E5E5E5","hover":"#252525","selection":"#353535"}
 
 PALETTES = {
     "sepia_word": SEPIA_WORD,
@@ -132,6 +132,8 @@ def css_vars(p):
         f"  line-height:1.58; font-size:{font_size}px;"
         "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
         "}"
+        # All text elements
+        f"p, span, div, li, label {{ color:{p['fg']} !important; }}"
         # Links and selection
         f"a {{ color:{p['accent']} !important; text-decoration:underline; }}"
         f"a:hover {{ color:{p['hover']} !important; }}"
@@ -153,6 +155,10 @@ def css_vars(p):
         f"  border-color:{p['accent']} !important; outline:none;"
         f"  box-shadow:0 0 0 2px {p['accent']}33;"
         "}"
+        # Checkboxes and radio buttons
+        f"input[type='checkbox'], input[type='radio'] {{"
+        f"  border:2px solid {p['border']} !important; background:{p['input']} !important;"
+        "}"
         # Card content (reviewer)
         f".card, .card1, .card2, .card3 {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
@@ -166,14 +172,22 @@ def css_vars(p):
         f"table {{ background:{p['bg']} !important; color:{p['fg']} !important; }}"
         f"th {{ background:{p['button']} !important; color:{p['buttonText']} !important;"
         f"  border:1px solid {p['border']} !important; padding:8px; }}"
-        f"td {{ border:1px solid {p['border']} !important; padding:6px; }}"
+        f"td {{ border:1px solid {p['border']} !important; padding:6px; color:{p['fg']} !important; }}"
         f"tr:hover {{ background:{p['hover']} !important; }}"
+        f"tr.drag-hover {{ background:{p['selection']} !important; }}"
+        # Lists
+        f"ul, ol {{ color:{p['fg']} !important; }}"
+        f"li {{ color:{p['fg']} !important; }}"
         # Code blocks
         f"code, pre {{"
         f"  background:{p['input']} !important; color:{p['fg']} !important;"
         f"  border:1px solid {p['border']} !important; border-radius:3px;"
         f"  padding:2px 4px; font-family:monospace;"
         "}"
+        # Headings
+        f"h1, h2, h3, h4, h5, h6 {{ color:{p['fg']} !important; }}"
+        # Horizontal rules
+        f"hr {{ border-color:{p['border']} !important; }}"
         # Scrollbars (webkit)
         f"::-webkit-scrollbar {{ width:12px; height:12px; }}"
         f"::-webkit-scrollbar-track {{ background:{p['bg']}; }}"
@@ -201,7 +215,10 @@ def inject_css(web_content, ctx):
         /* Deck browser specific */
         .deck {{ color:{p['fg']} !important; }}
         .deck-current {{ background:{p['hover']} !important; }}
-        tr.deck td {{ padding:8px !important; }}
+        tr.deck td {{ padding:8px !important; color:{p['fg']} !important; }}
+        .collapse {{ color:{p['muted']} !important; }}
+        .filtered {{ color:{p['accent']} !important; }}
+        .gears {{ color:{p['muted']} !important; }}
         """
 
     # Reviewer - card display
@@ -210,6 +227,11 @@ def inject_css(web_content, ctx):
         /* Reviewer specific */
         #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
         .nightMode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        #answer {{ color:{p['fg']} !important; }}
+        .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
+        .typeGood {{ color:{p['accent']} !important; }}
+        .typeBad {{ color:#E74C3C !important; }}
+        .typeMissed {{ color:#F39C12 !important; }}
         """
 
     # Editor - note editing
@@ -219,6 +241,9 @@ def inject_css(web_content, ctx):
         .fname {{ color:{p['muted']} !important; font-size:12px; }}
         .field {{ min-height:60px !important; }}
         .EditorField {{ background:{p['input']} !important; }}
+        .fieldButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .tag {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .tagAdd {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
         """
 
     # Overview - deck overview
@@ -233,6 +258,10 @@ def inject_css(web_content, ctx):
         context_css += f"""
         /* Browser specific */
         .browser-table {{ background:{p['bg']} !important; }}
+        .search {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        .cell {{ color:{p['fg']} !important; }}
+        .browserRow {{ background:{p['bg']} !important; }}
+        .browserRow:hover {{ background:{p['hover']} !important; }}
         """
 
     # Toolbar and bottom bars
@@ -536,6 +565,35 @@ def qss(p):
     }}
     QSplitter::handle:hover {{
         background:{p['muted']};
+    }}
+
+    /* Labels */
+    QLabel {{
+        color:{p['fg']};
+    }}
+
+    /* Spin boxes */
+    QSpinBox::up-button, QDoubleSpinBox::up-button {{
+        background:{p['button']};
+        border:1px solid {p['border']};
+    }}
+    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+        background:{p['button']};
+        border:1px solid {p['border']};
+    }}
+
+    /* Text browser (for help/preview) */
+    QTextBrowser {{
+        background:{p['bg']};
+        color:{p['fg']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+
+    /* Disabled widgets */
+    QWidget:disabled {{
+        color:{p['muted']};
     }}
     """
 
