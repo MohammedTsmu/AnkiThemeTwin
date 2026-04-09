@@ -13,6 +13,8 @@
   - Gray (Paper)
   - Dark • Warm (Soft)
   - Dark • Neutral (Soft)
+- **Follow System Theme** — automatically switch between a light and a dark theme based on the OS dark/light mode. Choose which theme to use for each mode.
+- **Instant Updates** — theme changes apply immediately to all open views (no need to leave and re-enter cards).
 - Designed for **eye comfort** in bright or dim rooms.
 - **Fonts with high contrast** (passes WCAG AA guidelines).
 - Easy theme switching via **Tools → Theme: AnkiThemeTwin**.
