@@ -40,18 +40,32 @@
 ### Intelligent Features
 - **Scheduled Theme Switching** — Auto-switch themes based on time of day (morning, afternoon, evening, night)
 - **Per-Deck Themes** — Set different themes for different decks
-- **Keyboard Shortcuts**:
+- **Study Session Modes** — Optimize display for Focus, Speed, or Detail modes
+- **Keyboard Shortcuts** with enhanced visual feedback:
   - `Ctrl+Shift+1-7`: Quick theme switching
   - `Ctrl+Shift+=`: Increase font size
   - `Ctrl+Shift+-`: Decrease font size
 - **Animation Settings** — Configurable theme transition effects
+- **Quick Settings Panel** — Combined controls for theme, font, and study mode
+- **Configuration Backup & Restore** — Export/import settings with versioning
+- **Usage Statistics** — Track your theme usage patterns
+
+### Visual Enhancements
+- **Smooth Animations** — CSS transitions on all interactive elements
+- **Enhanced Depth** — Card shadows and layered effects
+- **Button Effects** — Press animations and elevation changes
+- **Advanced Focus Indicators** — Multi-layer shadows and glow effects
+- **Gradient Overlays** — Modern gradients on buttons, scrollbars, and headers
+- **Background Patterns** — 5 optional patterns (None, Subtle, Dots, Grid, Lines)
+- **Improved Typography** — Heading accents and better text hierarchy
+- **Modal Animations** — Fade-in effects and entrance transitions
 
 ### Comprehensive Styling
 - **All Anki Pages**: Card reviewer, editor fields, deck browser, card browser
 - **Buttons & Menus**: Enhanced with hover states and focus indicators
 - **Tables & Lists**: Styled headers and alternating row colors
 - **Input Fields**: Custom focus indicators and borders
-- **Scrollbars**: Custom design matching theme colors
+- **Scrollbars**: Gradient design with hover effects
 - **Context-Aware CSS**: Optimized styling for each Anki page type
 
 ### Quality of Life

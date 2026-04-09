@@ -2244,13 +2244,22 @@ def add_menu():
     actAboutHelp.triggered.connect(show_about_dialog)
     help_menu.addAction(actAboutHelp)
 
+# ---------------- Visual Feedback ----------------
+def show_shortcut_feedback(message: str, icon: str = "⚡"):
+    """Show enhanced visual feedback for keyboard shortcuts."""
+    from aqt.utils import showInfo
+    tooltip(f"{icon} {message}", period=1500)
+
 def setup_keyboard_shortcuts():
     """Setup keyboard shortcuts for quick theme switching."""
     # Ctrl+Shift+1 through Ctrl+Shift+7 for the main themes
     theme_keys = [key for _, key in THEME_OPTIONS]
     for i, theme_key in enumerate(theme_keys[:7], 1):
         shortcut = QShortcut(QKeySequence(f"Ctrl+Shift+{i}"), mw)
-        shortcut.activated.connect(lambda k=theme_key: (set_theme(k), tooltip(f"Switched to {k}")))
+        def activate_theme(k=theme_key, num=i):
+            set_theme(k)
+            show_shortcut_feedback(f"Theme {num}: {k.replace('_', ' ').title()}", "🎨")
+        shortcut.activated.connect(activate_theme)
 
     # Ctrl+Shift+= for increasing font size
     increase_font = QShortcut(QKeySequence("Ctrl+Shift+="), mw)
@@ -2258,7 +2267,7 @@ def setup_keyboard_shortcuts():
         current = get_font_size()
         new_size = min(current + 2, 32)
         set_font_size(new_size)
-        tooltip(f"Font size: {new_size}px")
+        show_shortcut_feedback(f"Font size increased to {new_size}px", "📈")
     increase_font.activated.connect(increase_size)
 
     # Ctrl+Shift+- for decreasing font size
@@ -2267,7 +2276,7 @@ def setup_keyboard_shortcuts():
         current = get_font_size()
         new_size = max(current - 2, 8)
         set_font_size(new_size)
-        tooltip(f"Font size: {new_size}px")
+        show_shortcut_feedback(f"Font size decreased to {new_size}px", "📉")
     decrease_font.activated.connect(decrease_size)
 
 def on_profile_open():

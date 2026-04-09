@@ -5,6 +5,8 @@ All notable changes to AnkiThemeTwin will be documented in this file.
 ## [1.4.0] - 2026-04-09
 
 ### Added - Major Feature Release
+
+#### Phase 1: Accessibility & Customization
 - **6 New Accessibility Themes**:
   - High Contrast Light - Maximum contrast for visual impairments
   - High Contrast Dark - Dark mode with high contrast
@@ -31,6 +33,14 @@ All notable changes to AnkiThemeTwin will be documented in this file.
   - See color palettes at a glance
   - One-click theme application
 
+- **Advanced Font Customization**:
+  - Custom font family selection
+  - Font size slider (8-32px)
+  - Line height adjustment (100-300%)
+  - Letter spacing control (-5px to +10px)
+  - 7 font size presets (12, 14, 16, 18, 20, 22, 24px)
+
+#### Phase 2: Intelligent Features
 - **Scheduled Theme Switching**:
   - Auto-switch themes based on time of day
   - Configure 4 time periods (morning, afternoon, evening, night)
@@ -46,19 +56,104 @@ All notable changes to AnkiThemeTwin will be documented in this file.
   - Ctrl+Shift+1-7: Quick theme switching
   - Ctrl+Shift+=: Increase font size
   - Ctrl+Shift+-: Decrease font size
-  - Visual tooltip feedback
-
-- **Advanced Font Customization**:
-  - Custom font family selection
-  - Font size slider (8-32px)
-  - Line height adjustment (100-300%)
-  - Letter spacing control (-5px to +10px)
-  - 7 font size presets (12, 14, 16, 18, 20, 22, 24px)
+  - Enhanced visual feedback with icons
 
 - **Animation Settings**:
   - Configurable theme transition animations
   - Adjustable animation duration (100-2000ms)
   - Multiple animation styles (fade, instant)
+
+#### Phase 3: Power User Features
+- **Study Session Modes**:
+  - Normal Mode - Standard settings
+  - Focus Mode - Larger text, higher contrast for concentration
+  - Speed Mode - Compact layout for rapid reviews
+  - Detail Mode - Maximum readability for complex material
+
+- **Quick Settings Panel**:
+  - Combined controls for theme, font, and mode
+  - Favorite theme quick access
+  - One-click preset application
+
+- **Configuration Backup & Restore**:
+  - Export complete configuration to JSON
+  - Import configuration from backup
+  - Versioned backups with timestamps
+  - Safely migrate settings between devices
+
+- **Theme Usage Statistics**:
+  - Track theme usage patterns
+  - View most-used themes
+  - Last used timestamps
+  - Usage count per theme
+
+- **Theme Organization**:
+  - Mark themes as favorites
+  - Add tags to themes for categorization
+  - Quick filter by favorites
+
+#### Phase 4: Visual Enhancements
+- **CSS Transitions & Animations**:
+  - Smooth transitions on all interactive elements
+  - Configurable animation duration
+  - Card fade-in animations
+  - Modal dialog entrance effects
+  - Hover state transitions
+
+- **Enhanced Visual Depth**:
+  - Card shadows for depth perception
+  - Layered shadow effects on buttons
+  - Elevated focus states
+  - Gradient overlays on buttons and headers
+
+- **Button Press Effects**:
+  - Transform animations on click
+  - Inset shadows for pressed state
+  - Elevation changes on hover
+  - Smooth state transitions
+
+- **Advanced Focus Indicators**:
+  - Multi-layer box shadows
+  - Scale transformations on focus
+  - Accent color glow effects
+  - Enhanced visibility for accessibility
+
+- **Gradient Enhancements**:
+  - Linear gradients on buttons
+  - Gradient scrollbar thumbs
+  - Gradient table headers
+  - Subtle accent gradients
+
+- **Background Patterns**:
+  - 5 pattern options: None, Subtle, Dots, Grid, Lines
+  - Subtle texture without affecting readability
+  - Configurable via Visual Enhancements dialog
+  - Pattern colors adapt to current theme
+
+- **Scrollbar Enhancements**:
+  - Gradient scrollbar thumbs
+  - Hover glow effects
+  - Rounded, modern design
+  - Border spacing for clarity
+
+- **Improved Typography**:
+  - Heading underlines with accent colors
+  - Font weight adjustments
+  - Gradient horizontal rules
+  - Better text hierarchy
+
+- **Modal & Dropdown Improvements**:
+  - Entrance animations
+  - Enhanced shadows for depth
+  - Rounded corners
+  - Slide-in effects on dropdown items
+  - Border accent on selected items
+
+- **Enhanced Keyboard Shortcut Feedback**:
+  - Icon-based visual notifications
+  - Themed notification messages
+  - Extended display duration (1500ms)
+  - Descriptive action feedback
 
 ### Changed
 - Updated to version 1.4.0
