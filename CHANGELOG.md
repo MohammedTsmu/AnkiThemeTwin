@@ -2,6 +2,77 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.4.0] - 2026-04-09
+
+### Added - Major Feature Release
+- **6 New Accessibility Themes**:
+  - High Contrast Light - Maximum contrast for visual impairments
+  - High Contrast Dark - Dark mode with high contrast
+  - Dyslexia Friendly - Yellow background optimized for dyslexic readers
+  - Deuteranopia Support - Color blindness optimized (red-green)
+  - Protanopia Support - Color blindness optimized (red-green variant)
+  - Tritanopia Support - Color blindness optimized (blue-yellow)
+
+- **Custom Theme Creator**:
+  - Visual color picker for all theme elements
+  - Create unlimited custom themes
+  - Export themes as JSON files
+  - Import themes from JSON files
+  - Share themes with other users
+
+- **Theme Presets System**:
+  - Save favorite theme + font combinations
+  - Quick-load presets
+  - Manage multiple presets
+  - Perfect for switching between study environments
+
+- **Theme Preview Gallery**:
+  - Visual preview of all themes before applying
+  - See color palettes at a glance
+  - One-click theme application
+
+- **Scheduled Theme Switching**:
+  - Auto-switch themes based on time of day
+  - Configure 4 time periods (morning, afternoon, evening, night)
+  - Each period can have its own theme
+  - Perfect for adapting to lighting conditions
+
+- **Per-Deck Themes**:
+  - Set different themes for different decks
+  - Auto-switch when reviewing specific decks
+  - Great for context switching between subjects
+
+- **Keyboard Shortcuts**:
+  - Ctrl+Shift+1-7: Quick theme switching
+  - Ctrl+Shift+=: Increase font size
+  - Ctrl+Shift+-: Decrease font size
+  - Visual tooltip feedback
+
+- **Advanced Font Customization**:
+  - Custom font family selection
+  - Font size slider (8-32px)
+  - Line height adjustment (100-300%)
+  - Letter spacing control (-5px to +10px)
+  - 7 font size presets (12, 14, 16, 18, 20, 22, 24px)
+
+- **Animation Settings**:
+  - Configurable theme transition animations
+  - Adjustable animation duration (100-2000ms)
+  - Multiple animation styles (fade, instant)
+
+### Changed
+- Updated to version 1.4.0
+- Menu reorganized with new submenus for better organization
+- About dialog updated with new features list
+- Theme count increased from 7 to 13+ (plus unlimited custom themes)
+
+### Improved
+- Better accessibility for users with visual impairments
+- More flexible theming options
+- Enhanced user experience with previews and presets
+- Automatic theme adaptation with scheduling
+- More control over typography
+
 ## [1.3.0] - 2026-04-09
 
 ### Removed

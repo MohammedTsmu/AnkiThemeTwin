@@ -1,11 +1,13 @@
 # AnkiThemeTwin
 
-✨ **AnkiThemeTwin** brings **eye-comfort light themes** to Anki — inspired by **Microsoft Word Immersive Reader (Sepia / Gray)** and custom color palettes, all tuned for **font visibility** and **anti-glare**.
+✨ **AnkiThemeTwin** brings **eye-comfort themes with advanced customization** to Anki — featuring **13+ built-in themes**, **custom theme creator**, **accessibility options**, and **intelligent theme scheduling**.
 
 ---
 
 ## 🎨 Features
-- **7 High-Readability Light Themes**:
+
+### Themes
+- **7 Eye-Comfort Light Themes**:
   - Sepia (Word-like)
   - Sepia (Paper)
   - Sepia (Special • Dr. Mohammed)
@@ -13,19 +15,50 @@
   - Gray (Paper)
   - Blue Light (Evening)
   - Olive Green (Natural)
-- **Configurable Font Sizes** — Choose from Small (14px), Medium (16px), Large (18px), or Extra Large (20px) for optimal readability.
-- **Comprehensive Styling** — Enhanced styling for all Anki pages including:
-  - Card reviewer with optimized readability
-  - Editor fields with better contrast
-  - Buttons, menus, and toolbars
-  - Tables, scrollbars, and dialogs
-  - Input fields with focus indicators
-- **Instant Updates** — theme and font size changes apply immediately to all open views (no need to leave and re-enter cards).
-- Designed for **eye comfort** in bright or dim rooms.
-- **Fonts with high contrast** (passes WCAG AA guidelines).
-- Easy theme switching via **Tools → Theme: AnkiThemeTwin**.
-- **About dialog** with project details and GitHub link.
-- Compatible with **Anki 2.1.55+ (Qt6 / PyQt6)** — tested on Anki 25.x.
+
+- **6 Accessibility Themes**:
+  - High Contrast Light - Maximum contrast for visual impairments
+  - High Contrast Dark - Dark mode with high contrast
+  - Dyslexia Friendly - Optimized for dyslexic readers
+  - Deuteranopia Support - Color blindness optimized (red-green)
+  - Protanopia Support - Color blindness optimized (red-green variant)
+  - Tritanopia Support - Color blindness optimized (blue-yellow)
+
+- **Unlimited Custom Themes**: Create your own themes with the visual color picker
+
+### Customization Features
+- **Custom Theme Creator** — Visual color picker for all theme elements
+- **Theme Presets** — Save and load favorite theme + font combinations
+- **Theme Preview Gallery** — See all themes before applying
+- **Import/Export Themes** — Share themes as JSON files
+- **Advanced Font Settings**:
+  - Font family selection
+  - Font size: 8-32px with slider or 7 presets (12, 14, 16, 18, 20, 22, 24px)
+  - Line height adjustment (100-300%)
+  - Letter spacing control (-5px to +10px)
+
+### Intelligent Features
+- **Scheduled Theme Switching** — Auto-switch themes based on time of day (morning, afternoon, evening, night)
+- **Per-Deck Themes** — Set different themes for different decks
+- **Keyboard Shortcuts**:
+  - `Ctrl+Shift+1-7`: Quick theme switching
+  - `Ctrl+Shift+=`: Increase font size
+  - `Ctrl+Shift+-`: Decrease font size
+- **Animation Settings** — Configurable theme transition effects
+
+### Comprehensive Styling
+- **All Anki Pages**: Card reviewer, editor fields, deck browser, card browser
+- **Buttons & Menus**: Enhanced with hover states and focus indicators
+- **Tables & Lists**: Styled headers and alternating row colors
+- **Input Fields**: Custom focus indicators and borders
+- **Scrollbars**: Custom design matching theme colors
+- **Context-Aware CSS**: Optimized styling for each Anki page type
+
+### Quality of Life
+- **Instant Updates** — Changes apply immediately to all open views
+- **WCAG AA Compliant** — All themes pass accessibility contrast guidelines
+- **Easy Switching** — Access via **Tools → Theme: AnkiThemeTwin**
+- **About Dialog** — Project details and GitHub link
 
 ---
 
@@ -54,6 +87,70 @@
 
 ## ⚙️ Requirements
 - **Anki 2.1.55+** (Qt6/PyQt6). Older Qt5 builds are not supported.
+
+---
+
+## 🚀 Quick Start Guide
+
+### Basic Usage
+1. Install the add-on
+2. Open **Tools → Theme: AnkiThemeTwin**
+3. Select a theme from the menu
+4. Use keyboard shortcuts for quick switching:
+   - `Ctrl+Shift+1` through `Ctrl+Shift+7` for main themes
+   - `Ctrl+Shift+=` to increase font size
+   - `Ctrl+Shift+-` to decrease font size
+
+### Advanced Features
+
+#### Custom Theme Creator
+1. Go to **Tools → Theme: AnkiThemeTwin → Create Custom Theme...**
+2. Pick colors for each element using the color pickers
+3. Save your theme with a custom name
+4. Your theme will appear in the main menu
+
+#### Theme Presets
+1. Configure your perfect theme + font size combination
+2. Go to **Manage Presets...**
+3. Save current settings as a preset
+4. Quick-load presets anytime
+
+#### Scheduled Theme Switching
+1. Open **Scheduled Theme Switching...**
+2. Enable the feature
+3. Set times and themes for morning, afternoon, evening, and night
+4. Themes will auto-switch based on the time
+
+#### Per-Deck Themes
+1. Open **Per-Deck Themes...**
+2. Enter deck name and select theme
+3. Theme will auto-apply when reviewing that deck
+
+#### Theme Preview
+1. Open **Theme Preview Gallery...**
+2. Browse all themes with visual previews
+3. Click "Apply This Theme" to instantly switch
+
+---
+
+## ♿ Accessibility Features
+
+### For Visual Impairments
+- **High Contrast Light/Dark**: Maximum contrast ratios (WCAG AAA compliant)
+- **Adjustable Font Sizes**: 8-32px range with preset options
+- **Custom Letter Spacing**: Improve readability with adjustable spacing
+
+### For Dyslexia
+- **Dyslexia Friendly Theme**: Yellow background proven to reduce reading difficulty
+- **Increased Line Height**: Adjustable up to 300%
+- **Custom Font Support**: Use OpenDyslexic or other specialized fonts
+
+### For Color Blindness
+- **Deuteranopia Support**: Optimized for red-green color blindness
+- **Protanopia Support**: Alternative red-green optimization
+- **Tritanopia Support**: Optimized for blue-yellow color blindness
+
+All accessibility themes maintain high contrast and readability while accommodating specific visual needs.
 
 ---
 
