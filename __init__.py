@@ -566,6 +566,35 @@ def qss(p):
     QSplitter::handle:hover {{
         background:{p['muted']};
     }}
+
+    /* Labels */
+    QLabel {{
+        color:{p['fg']};
+    }}
+
+    /* Spin boxes */
+    QSpinBox::up-button, QDoubleSpinBox::up-button {{
+        background:{p['button']};
+        border:1px solid {p['border']};
+    }}
+    QSpinBox::down-button, QDoubleSpinBox::down-button {{
+        background:{p['button']};
+        border:1px solid {p['border']};
+    }}
+
+    /* Text browser (for help/preview) */
+    QTextBrowser {{
+        background:{p['bg']};
+        color:{p['fg']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+
+    /* Disabled widgets */
+    QWidget:disabled {{
+        color:{p['muted']};
+    }}
     """
 
 def apply_qt_styles(theme: Theme):
