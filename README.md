@@ -1,23 +1,19 @@
 # AnkiThemeTwin
 
-✨ **AnkiThemeTwin** brings **eye-comfort themes** to Anki — inspired by **Microsoft Word Immersive Reader (Sepia / Gray)** and custom **Soft Dark** themes, all tuned for **font visibility** and **anti-glare**.
+✨ **AnkiThemeTwin** brings **eye-comfort light themes** to Anki — inspired by **Microsoft Word Immersive Reader (Sepia / Gray)** and custom color palettes, all tuned for **font visibility** and **anti-glare**.
 
 ---
 
 ## 🎨 Features
-- **10 High-Readability Themes**:
+- **7 High-Readability Light Themes**:
   - Sepia (Word-like)
   - Sepia (Paper)
   - Sepia (Special • Dr. Mohammed)
   - Gray (Word-like)
   - Gray (Paper)
-  - Blue Light (Evening) — NEW!
-  - Olive Green (Natural) — NEW!
-  - Dark • Warm (Soft)
-  - Dark • Neutral (Soft)
-  - True Black (OLED) — NEW!
+  - Blue Light (Evening)
+  - Olive Green (Natural)
 - **Configurable Font Sizes** — Choose from Small (14px), Medium (16px), Large (18px), or Extra Large (20px) for optimal readability.
-- **Follow System Theme** — automatically switch between a light and a dark theme based on the OS dark/light mode. Choose which theme to use for each mode.
 - **Comprehensive Styling** — Enhanced styling for all Anki pages including:
   - Card reviewer with optimized readability
   - Editor fields with better contrast
@@ -34,9 +30,9 @@
 ---
 
 ## 📸 Screenshots
-| Sepia Special | Gray Paper | Dark Warm Soft |
-|---------------|------------|----------------|
-| ![Sepia Special](images/sepia_special.png) | ![Gray Paper](images/gray_paper.png) | ![Dark Warm Soft](images/dark_warm.png) |
+| Sepia Special | Gray Paper | Blue Light |
+|---------------|------------|------------|
+| ![Sepia Special](images/sepia_special.png) | ![Gray Paper](images/gray_paper.png) | ![Blue Light](images/blue_light.png) |
 
 *(Screenshots live in `/images` in this repo.)*
 
@@ -66,21 +62,19 @@
 ### By Environment
 - **Bright sunlight / Outdoor**: Gray (Paper) or Sepia (Paper) — darker backgrounds reduce glare
 - **Office / Indoor lighting**: Sepia (Word-like), Gray (Word-like), or Sepia (Special)
-- **Evening / Low light**: Blue Light (reduces eye strain), Dark • Warm (Soft)
-- **Night / Dark room**: Dark • Neutral (Soft) or True Black (OLED)
+- **Evening / Low light**: Blue Light (reduces eye strain)
 - **Extended study sessions**: Sepia (Special), Olive Green — warm, natural tones reduce fatigue
 
 ### By Device
-- **OLED/AMOLED screens**: True Black (OLED) — saves battery and perfect blacks
-- **LCD screens**: Any theme works well; Dark • Warm/Neutral for dark mode
+- **LCD screens**: Any theme works well
 - **High-brightness displays**: Sepia or Gray themes to reduce eye strain
 - **E-ink displays**: Gray (Word-like) or Gray (Paper) for best readability
 
 ### By Preference
-- **Warm tones**: Sepia (Word/Paper/Special), Dark • Warm, Olive Green
-- **Cool tones**: Gray (Word/Paper), Blue Light, Dark • Neutral
-- **Maximum contrast**: Gray (Paper), True Black (OLED)
-- **Soft on eyes**: Sepia (Special), Blue Light, Dark • Warm
+- **Warm tones**: Sepia (Word/Paper/Special), Olive Green
+- **Cool tones**: Gray (Word/Paper), Blue Light
+- **Maximum contrast**: Gray (Paper)
+- **Soft on eyes**: Sepia (Special), Blue Light
 
 ### Font Size Recommendations
 - **14px**: For larger screens (24"+) or users who prefer more content per page
