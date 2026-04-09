@@ -79,7 +79,7 @@ def is_system_dark() -> bool:
     try:
         scheme = QApplication.instance().styleHints().colorScheme()
         return scheme == Qt.ColorScheme.Dark
-    except Exception:
+    except (AttributeError, RuntimeError):
         # Fallback for older Qt 6 builds without colorScheme()
         app = QApplication.instance()
         if app:
@@ -145,7 +145,8 @@ def refresh_all_webviews():
         if wv:
             try:
                 wv.eval(js)
-            except Exception:
+            except (RuntimeError, AttributeError):
+                # WebView might be closed or not ready
                 pass
 
 def apply_theme_everywhere(theme: Theme):
@@ -170,8 +171,9 @@ def _connect_system_listener():
             _on_system_scheme_changed
         )
         _system_listener_connected = True
-    except Exception:
-        pass  # Older Qt without colorSchemeChanged
+    except (AttributeError, RuntimeError):
+        # Older Qt without colorSchemeChanged signal
+        pass
 
 # ---------------- About Dialog ----------------
 def show_about_dialog():

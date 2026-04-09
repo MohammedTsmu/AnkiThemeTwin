@@ -1,7 +1,9 @@
 {
+  "package": "ankithemetwin",
   "name": "AnkiThemeTwin",
   "mod": 20260409,
-  "min_point_version": 45,
+  "min_point_version": 55,
   "max_point_version": 60,
+  "human_version": "1.1.1",
   "author": "Dr. Mohammed"
 }
