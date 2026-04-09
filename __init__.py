@@ -931,6 +931,150 @@ def save_animation_settings(settings: dict):
     cfg["animations"] = settings
     write_config(cfg)
 
+# ---------------- Study Session Modes ----------------
+def get_study_mode() -> str:
+    """Get current study mode."""
+    cfg = get_config()
+    return cfg.get("studyMode", "normal")
+
+def set_study_mode(mode: str):
+    """Set study mode and apply associated settings."""
+    cfg = get_config()
+    cfg["studyMode"] = mode
+
+    # Apply mode-specific settings
+    if mode == "focus":
+        # Focus mode: larger text, higher contrast
+        cfg["fontSize"] = 20
+        cfg["lineHeight"] = 1.8
+        cfg["letterSpacing"] = 0.5
+    elif mode == "speed":
+        # Speed mode: compact layout, smaller text
+        cfg["fontSize"] = 14
+        cfg["lineHeight"] = 1.4
+        cfg["letterSpacing"] = 0.0
+    elif mode == "detail":
+        # Detail mode: maximum readability
+        cfg["fontSize"] = 18
+        cfg["lineHeight"] = 2.0
+        cfg["letterSpacing"] = 1.0
+    # normal mode keeps current settings
+
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+    tooltip(f"Study mode: {mode}")
+
+# ---------------- Theme Tags & Favorites ----------------
+def get_favorite_themes() -> list:
+    """Get list of favorite theme names."""
+    cfg = get_config()
+    return cfg.get("favoriteThemes", [])
+
+def toggle_favorite_theme(theme_name: str):
+    """Add or remove theme from favorites."""
+    cfg = get_config()
+    favorites = get_favorite_themes()
+
+    if theme_name in favorites:
+        favorites.remove(theme_name)
+        tooltip(f"Removed {theme_name} from favorites")
+    else:
+        favorites.append(theme_name)
+        tooltip(f"Added {theme_name} to favorites")
+
+    cfg["favoriteThemes"] = favorites
+    write_config(cfg)
+
+def get_theme_tags() -> dict:
+    """Get theme tags mapping."""
+    cfg = get_config()
+    return cfg.get("themeTags", {})
+
+def add_theme_tag(theme_name: str, tag: str):
+    """Add a tag to a theme."""
+    cfg = get_config()
+    tags = get_theme_tags()
+
+    if theme_name not in tags:
+        tags[theme_name] = []
+
+    if tag not in tags[theme_name]:
+        tags[theme_name].append(tag)
+        cfg["themeTags"] = tags
+        write_config(cfg)
+        tooltip(f"Added tag '{tag}' to {theme_name}")
+
+# ---------------- Configuration Backup/Restore ----------------
+def backup_configuration() -> str:
+    """Backup current configuration to JSON string."""
+    cfg = get_config()
+    backup_data = {
+        "version": VERSION,
+        "backup_date": datetime.now().isoformat(),
+        "configuration": cfg
+    }
+    return json.dumps(backup_data, indent=2)
+
+def restore_configuration(backup_json: str) -> bool:
+    """Restore configuration from JSON string."""
+    try:
+        backup_data = json.loads(backup_json)
+        cfg = backup_data.get("configuration", {})
+
+        # Restore configuration
+        for key, value in cfg.items():
+            current_cfg = get_config()
+            current_cfg[key] = value
+            write_config(current_cfg)
+
+        # Reload custom themes
+        custom_themes = get_custom_themes()
+        for name, palette in custom_themes.items():
+            PALETTES[name] = palette
+
+        apply_theme_everywhere(get_active_theme())
+        tooltip("Configuration restored successfully!")
+        return True
+    except Exception as e:
+        showInfo(f"Error restoring configuration: {e}")
+        return False
+
+def export_configuration_to_file(file_path: str):
+    """Export configuration to file."""
+    backup_json = backup_configuration()
+    with open(file_path, 'w') as f:
+        f.write(backup_json)
+    tooltip(f"Configuration exported to {file_path}")
+
+def import_configuration_from_file(file_path: str):
+    """Import configuration from file."""
+    try:
+        with open(file_path, 'r') as f:
+            backup_json = f.read()
+        restore_configuration(backup_json)
+    except Exception as e:
+        showInfo(f"Error importing configuration: {e}")
+
+# ---------------- Theme Statistics ----------------
+def get_theme_statistics() -> dict:
+    """Get local theme usage statistics."""
+    cfg = get_config()
+    return cfg.get("themeStats", {})
+
+def record_theme_usage(theme_name: str):
+    """Record theme usage (called when theme is applied)."""
+    cfg = get_config()
+    stats = get_theme_statistics()
+
+    if theme_name not in stats:
+        stats[theme_name] = {"count": 0, "last_used": None}
+
+    stats[theme_name]["count"] += 1
+    stats[theme_name]["last_used"] = datetime.now().isoformat()
+
+    cfg["themeStats"] = stats
+    write_config(cfg)
+
 # ---------------- About Dialog ----------------
 def show_about_dialog():
     dlg = QDialog(mw)
@@ -1469,6 +1613,276 @@ def show_animation_settings():
 
     dlg.exec()
 
+# ---------------- Study Mode Dialog ----------------
+def show_study_mode_dialog():
+    """Show dialog to select study mode."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Study Session Modes")
+    dlg.resize(500, 400)
+    layout = QVBoxLayout(dlg)
+
+    info = QLabel(
+        "<b>Study Session Modes</b><br><br>"
+        "Choose a mode optimized for different study scenarios:"
+    )
+    layout.addWidget(info)
+
+    current_mode = get_study_mode()
+
+    # Mode buttons
+    mode_group = QButtonGroup(dlg)
+
+    normal_rb = QRadioButton("Normal - Balanced settings")
+    normal_rb.setChecked(current_mode == "normal")
+    mode_group.addButton(normal_rb)
+    layout.addWidget(normal_rb)
+
+    focus_rb = QRadioButton("Focus - Larger text, higher contrast, fewer distractions")
+    focus_rb.setChecked(current_mode == "focus")
+    mode_group.addButton(focus_rb)
+    layout.addWidget(focus_rb)
+
+    speed_rb = QRadioButton("Speed - Compact layout for rapid reviews")
+    speed_rb.setChecked(current_mode == "speed")
+    mode_group.addButton(speed_rb)
+    layout.addWidget(speed_rb)
+
+    detail_rb = QRadioButton("Detail - Maximum readability for careful study")
+    detail_rb.setChecked(current_mode == "detail")
+    mode_group.addButton(detail_rb)
+    layout.addWidget(detail_rb)
+
+    # Mode descriptions
+    desc_label = QLabel(
+        "<br><b>Mode Details:</b><br>"
+        "• <b>Normal</b>: Your current custom settings<br>"
+        "• <b>Focus</b>: Font 20px, Line height 1.8, Letter spacing 0.5px<br>"
+        "• <b>Speed</b>: Font 14px, Line height 1.4, Letter spacing 0px<br>"
+        "• <b>Detail</b>: Font 18px, Line height 2.0, Letter spacing 1.0px<br>"
+    )
+    layout.addWidget(desc_label)
+
+    # Apply button
+    def apply_mode():
+        if normal_rb.isChecked():
+            set_study_mode("normal")
+        elif focus_rb.isChecked():
+            set_study_mode("focus")
+        elif speed_rb.isChecked():
+            set_study_mode("speed")
+        elif detail_rb.isChecked():
+            set_study_mode("detail")
+        dlg.accept()
+
+    apply_btn = QPushButton("Apply Mode")
+    apply_btn.clicked.connect(apply_mode)
+    layout.addWidget(apply_btn)
+
+    close_btn = QPushButton("Cancel")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Quick Settings Panel ----------------
+def show_quick_settings_panel():
+    """Show quick access panel for common settings."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Quick Settings")
+    dlg.resize(400, 500)
+    layout = QVBoxLayout(dlg)
+
+    cfg = get_config()
+
+    # Current theme
+    theme_layout = QHBoxLayout()
+    theme_layout.addWidget(QLabel("Theme:"))
+    theme_combo = QComboBox()
+    all_themes = [key for _, key in THEME_OPTIONS + ACCESSIBILITY_THEMES]
+    theme_combo.addItems(all_themes)
+    theme_combo.setCurrentText(cfg.get("currentTheme", "sepia_special"))
+    theme_layout.addWidget(theme_combo)
+    layout.addLayout(theme_layout)
+
+    # Font size
+    size_layout = QHBoxLayout()
+    size_layout.addWidget(QLabel("Font Size:"))
+    size_spin = QSpinBox()
+    size_spin.setRange(8, 32)
+    size_spin.setValue(cfg.get("fontSize", 16))
+    size_spin.setSuffix("px")
+    size_layout.addWidget(size_spin)
+    layout.addLayout(size_layout)
+
+    # Study mode
+    mode_layout = QHBoxLayout()
+    mode_layout.addWidget(QLabel("Study Mode:"))
+    mode_combo = QComboBox()
+    mode_combo.addItems(["normal", "focus", "speed", "detail"])
+    mode_combo.setCurrentText(get_study_mode())
+    mode_layout.addWidget(mode_combo)
+    layout.addLayout(mode_layout)
+
+    # Favorites
+    layout.addWidget(QLabel("<br><b>Favorite Themes:</b>"))
+    favorites = get_favorite_themes()
+    fav_list = QTextEdit()
+    fav_list.setReadOnly(True)
+    fav_list.setMaximumHeight(100)
+    if favorites:
+        fav_list.setPlainText(", ".join(favorites))
+    else:
+        fav_list.setPlainText("No favorites yet")
+    layout.addWidget(fav_list)
+
+    # Quick actions
+    layout.addWidget(QLabel("<br><b>Quick Actions:</b>"))
+
+    actions_layout = QVBoxLayout()
+
+    def apply_favorite(fav_theme):
+        set_theme(fav_theme)
+        dlg.accept()
+
+    for fav in favorites[:5]:  # Show first 5 favorites
+        btn = QPushButton(f"Apply: {fav}")
+        btn.clicked.connect(lambda _, f=fav: apply_favorite(f))
+        actions_layout.addWidget(btn)
+
+    layout.addLayout(actions_layout)
+
+    # Apply current selections
+    def apply_quick_settings():
+        set_theme(theme_combo.currentText())
+        set_font_size(size_spin.value())
+        set_study_mode(mode_combo.currentText())
+        dlg.accept()
+
+    apply_btn = QPushButton("Apply All Settings")
+    apply_btn.clicked.connect(apply_quick_settings)
+    layout.addWidget(apply_btn)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Configuration Backup Dialog ----------------
+def show_backup_restore_dialog():
+    """Show dialog to backup/restore configuration."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Backup & Restore Configuration")
+    dlg.resize(600, 400)
+    layout = QVBoxLayout(dlg)
+
+    info = QLabel(
+        "<b>Backup & Restore</b><br>"
+        "Save and restore all your AnkiThemeTwin settings."
+    )
+    layout.addWidget(info)
+
+    # Backup section
+    backup_layout = QVBoxLayout()
+    backup_layout.addWidget(QLabel("<br><b>Backup Configuration:</b>"))
+
+    backup_text = QTextEdit()
+    backup_text.setPlaceholderText("Backup JSON will appear here...")
+    backup_text.setMaximumHeight(150)
+    backup_layout.addWidget(backup_text)
+
+    def create_backup():
+        backup_json = backup_configuration()
+        backup_text.setPlainText(backup_json)
+        tooltip("Backup created! Copy or save to file.")
+
+    backup_btn = QPushButton("Create Backup")
+    backup_btn.clicked.connect(create_backup)
+    backup_layout.addWidget(backup_btn)
+
+    layout.addLayout(backup_layout)
+
+    # Restore section
+    restore_layout = QVBoxLayout()
+    restore_layout.addWidget(QLabel("<br><b>Restore Configuration:</b>"))
+
+    restore_text = QTextEdit()
+    restore_text.setPlaceholderText("Paste backup JSON here to restore...")
+    restore_text.setMaximumHeight(150)
+    restore_layout.addWidget(restore_text)
+
+    def restore_backup():
+        backup_json = restore_text.toPlainText()
+        if backup_json.strip():
+            if restore_configuration(backup_json):
+                dlg.accept()
+        else:
+            showInfo("Please paste a backup JSON first!")
+
+    restore_btn = QPushButton("Restore from Backup")
+    restore_btn.clicked.connect(restore_backup)
+    restore_layout.addWidget(restore_btn)
+
+    layout.addLayout(restore_layout)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Theme Statistics Dialog ----------------
+def show_statistics_dialog():
+    """Show theme usage statistics."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Theme Usage Statistics")
+    dlg.resize(600, 400)
+    layout = QVBoxLayout(dlg)
+
+    info = QLabel("<b>Your Theme Usage (Local Only)</b>")
+    layout.addWidget(info)
+
+    stats = get_theme_statistics()
+
+    if not stats:
+        layout.addWidget(QLabel("<br>No usage data yet. Start using themes to see statistics!"))
+    else:
+        # Sort by usage count
+        sorted_stats = sorted(stats.items(), key=lambda x: x[1]["count"], reverse=True)
+
+        stats_text = QTextEdit()
+        stats_text.setReadOnly(True)
+
+        text = "<table width='100%'><tr><th>Theme</th><th>Uses</th><th>Last Used</th></tr>"
+        for theme, data in sorted_stats:
+            count = data.get("count", 0)
+            last_used = data.get("last_used", "Never")
+            if last_used != "Never":
+                # Format datetime
+                try:
+                    dt = datetime.fromisoformat(last_used)
+                    last_used = dt.strftime("%Y-%m-%d %H:%M")
+                except:
+                    pass
+            text += f"<tr><td>{theme}</td><td>{count}</td><td>{last_used}</td></tr>"
+        text += "</table>"
+
+        stats_text.setHtml(text)
+        layout.addWidget(stats_text)
+
+        # Most used theme
+        most_used = sorted_stats[0]
+        summary = QLabel(
+            f"<br><b>Most Used:</b> {most_used[0]} ({most_used[1]['count']} times)"
+        )
+        layout.addWidget(summary)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.accept)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
 # ---------------- Menu ----------------
 
 def set_theme(theme: Theme):
@@ -1478,6 +1892,8 @@ def set_theme(theme: Theme):
     cfg["currentTheme"] = theme
     write_config(cfg)
     apply_theme_everywhere(theme)
+    # Record usage statistics
+    record_theme_usage(theme)
 
 def set_font_size(size: int):
     """Set the font size and refresh all views. Valid range: 8-72px."""
@@ -1565,6 +1981,28 @@ def add_menu():
     actAnimations = QAction("Animation Settings...", mw)
     actAnimations.triggered.connect(show_animation_settings)
     m.addAction(actAnimations)
+
+    m.addSeparator()
+
+    # ---- Study & Quick Access ----
+    actStudyMode = QAction("Study Session Modes...", mw)
+    actStudyMode.triggered.connect(show_study_mode_dialog)
+    m.addAction(actStudyMode)
+
+    actQuickSettings = QAction("Quick Settings Panel...", mw)
+    actQuickSettings.triggered.connect(show_quick_settings_panel)
+    m.addAction(actQuickSettings)
+
+    m.addSeparator()
+
+    # ---- Configuration & Statistics ----
+    actBackup = QAction("Backup & Restore...", mw)
+    actBackup.triggered.connect(show_backup_restore_dialog)
+    m.addAction(actBackup)
+
+    actStatistics = QAction("Usage Statistics...", mw)
+    actStatistics.triggered.connect(show_statistics_dialog)
+    m.addAction(actStatistics)
 
     m.addSeparator()
 
