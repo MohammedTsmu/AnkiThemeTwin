@@ -61,6 +61,35 @@
 
 ---
 
+## 🎯 Theme Recommendations
+
+### By Environment
+- **Bright sunlight / Outdoor**: Gray (Paper) or Sepia (Paper) — darker backgrounds reduce glare
+- **Office / Indoor lighting**: Sepia (Word-like), Gray (Word-like), or Sepia (Special)
+- **Evening / Low light**: Blue Light (reduces eye strain), Dark • Warm (Soft)
+- **Night / Dark room**: Dark • Neutral (Soft) or True Black (OLED)
+- **Extended study sessions**: Sepia (Special), Olive Green — warm, natural tones reduce fatigue
+
+### By Device
+- **OLED/AMOLED screens**: True Black (OLED) — saves battery and perfect blacks
+- **LCD screens**: Any theme works well; Dark • Warm/Neutral for dark mode
+- **High-brightness displays**: Sepia or Gray themes to reduce eye strain
+- **E-ink displays**: Gray (Word-like) or Gray (Paper) for best readability
+
+### By Preference
+- **Warm tones**: Sepia (Word/Paper/Special), Dark • Warm, Olive Green
+- **Cool tones**: Gray (Word/Paper), Blue Light, Dark • Neutral
+- **Maximum contrast**: Gray (Paper), True Black (OLED)
+- **Soft on eyes**: Sepia (Special), Blue Light, Dark • Warm
+
+### Font Size Recommendations
+- **14px**: For larger screens (24"+) or users who prefer more content per page
+- **16px**: Default, optimal for most users and screen sizes
+- **18px**: Better for extended reading sessions or smaller text in cards
+- **20px**: For accessibility, visual impairment, or users who prefer larger text
+
+---
+
 ## 🧰 Troubleshooting
 - Colors didn’t change? Restart Anki, and ensure no other theming add-on overrides styles.
 - You can switch any time from **Tools → Theme: AnkiThemeTwin**.

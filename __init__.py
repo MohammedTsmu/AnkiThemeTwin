@@ -1,5 +1,5 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.1.1
-# 7 high-readability themes + follow-system mode + instant updates
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.2.0
+# 10 high-readability themes + follow-system mode + instant updates + configurable font size
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
 from aqt import mw, gui_hooks
@@ -8,7 +8,7 @@ from aqt.qt import (
     QDialog, QVBoxLayout, QLabel, QPushButton, Qt,
 )
 from aqt.utils import openLink
-from typing import Literal
+from typing import Literal, Any
 
 VERSION = "1.2.0"
 
@@ -180,8 +180,71 @@ def css_vars(p):
     )
 
 def inject_css(web_content, ctx):
+    """Inject CSS into webviews with context-specific enhancements."""
     theme = get_active_theme()
-    web_content.head += f'<style id="{_STYLE_ID}">{css_vars(palette_for(theme))}</style>'
+    p = palette_for(theme)
+
+    # Base CSS for all contexts
+    base_css = css_vars(p)
+
+    # Context-specific CSS additions
+    context_css = ""
+
+    # Check context type and add specific styling
+    ctx_name = ctx.__class__.__name__ if hasattr(ctx, '__class__') else str(ctx)
+
+    # DeckBrowser - main deck list
+    if "DeckBrowser" in ctx_name:
+        context_css += f"""
+        /* Deck browser specific */
+        .deck {{ color:{p['fg']} !important; }}
+        .deck-current {{ background:{p['hover']} !important; }}
+        tr.deck td {{ padding:8px !important; }}
+        """
+
+    # Reviewer - card display
+    elif "Reviewer" in ctx_name or "Review" in ctx_name:
+        context_css += f"""
+        /* Reviewer specific */
+        #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        """
+
+    # Editor - note editing
+    elif "Editor" in ctx_name:
+        context_css += f"""
+        /* Editor specific */
+        .fname {{ color:{p['muted']} !important; font-size:12px; }}
+        .field {{ min-height:60px !important; }}
+        .EditorField {{ background:{p['input']} !important; }}
+        """
+
+    # Overview - deck overview
+    elif "Overview" in ctx_name:
+        context_css += f"""
+        /* Overview specific */
+        .descfont {{ color:{p['fg']} !important; }}
+        """
+
+    # Browser - card browser
+    elif "Browser" in ctx_name:
+        context_css += f"""
+        /* Browser specific */
+        .browser-table {{ background:{p['bg']} !important; }}
+        """
+
+    # Toolbar and bottom bars
+    elif "Toolbar" in ctx_name or "BottomBar" in ctx_name:
+        context_css += f"""
+        /* Toolbar/BottomBar specific */
+        .bottom {{ background:{p['bg']} !important; border-top:1px solid {p['border']} !important; }}
+        """
+
+    # Combine all CSS
+    full_css = base_css + context_css
+
+    # Inject into page
+    web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
 
 def qss(p):
     """Generate comprehensive Qt Style Sheets for all Qt widgets."""
