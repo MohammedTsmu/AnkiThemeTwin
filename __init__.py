@@ -8,12 +8,14 @@ from aqt.qt import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, Qt,
     QSlider, QColorDialog, QLineEdit, QSpinBox, QScrollArea,
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
-    QShortcut, QKeySequence,
+    QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
+    QRadioButton,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
 import json
 import os
+from datetime import datetime, time
 
 VERSION = "1.4.0"
 
@@ -833,6 +835,102 @@ def import_theme(file_path: str):
     except Exception as e:
         showInfo(f"Error importing theme: {e}")
 
+# ---------------- Scheduled Theme Switching ----------------
+def get_scheduled_themes() -> dict:
+    """Get scheduled theme switching configuration."""
+    cfg = get_config()
+    return cfg.get("scheduledThemes", {
+        "enabled": False,
+        "morning": {"time": "07:00", "theme": "sepia_word"},
+        "afternoon": {"time": "12:00", "theme": "sepia_special"},
+        "evening": {"time": "18:00", "theme": "blue_light"},
+        "night": {"time": "23:00", "theme": "gray_word"}
+    })
+
+def save_scheduled_themes(schedule: dict):
+    """Save scheduled theme configuration."""
+    cfg = get_config()
+    cfg["scheduledThemes"] = schedule
+    write_config(cfg)
+
+def check_scheduled_theme():
+    """Check and apply scheduled theme if enabled."""
+    schedule = get_scheduled_themes()
+    if not schedule.get("enabled"):
+        return
+
+    now = datetime.now().time()
+    current_theme = None
+
+    # Parse times and find the appropriate theme
+    times = []
+    for period in ["morning", "afternoon", "evening", "night"]:
+        if period in schedule:
+            time_str = schedule[period].get("time", "00:00")
+            hour, minute = map(int, time_str.split(":"))
+            times.append((time(hour, minute), schedule[period].get("theme")))
+
+    # Sort by time
+    times.sort(key=lambda x: x[0])
+
+    # Find the current theme based on time
+    for t, theme in reversed(times):
+        if now >= t:
+            current_theme = theme
+            break
+
+    # If no match, use the last time period (wraps around to night)
+    if current_theme is None and times:
+        current_theme = times[-1][1]
+
+    # Apply if different from current
+    if current_theme and current_theme != get_active_theme():
+        set_theme(current_theme)
+        tooltip(f"Auto-switched to {current_theme}")
+
+# ---------------- Per-Deck Themes ----------------
+def get_deck_themes() -> dict:
+    """Get per-deck theme configuration."""
+    cfg = get_config()
+    return cfg.get("deckThemes", {})
+
+def set_deck_theme(deck_name: str, theme: str):
+    """Set theme for a specific deck."""
+    cfg = get_config()
+    deck_themes = get_deck_themes()
+    deck_themes[deck_name] = theme
+    cfg["deckThemes"] = deck_themes
+    write_config(cfg)
+    tooltip(f"Theme for deck '{deck_name}' set to {theme}")
+
+def get_theme_for_deck(deck_name: str) -> Optional[str]:
+    """Get theme for a specific deck, or None if not set."""
+    deck_themes = get_deck_themes()
+    return deck_themes.get(deck_name)
+
+def apply_deck_theme_if_set(deck_name: str):
+    """Apply theme for deck if configured."""
+    theme = get_theme_for_deck(deck_name)
+    if theme and theme in PALETTES:
+        set_theme(theme)
+        tooltip(f"Loaded theme for {deck_name}")
+
+# ---------------- Theme Animations ----------------
+def get_animation_settings() -> dict:
+    """Get animation settings."""
+    cfg = get_config()
+    return cfg.get("animations", {
+        "enabled": True,
+        "duration": 300,  # milliseconds
+        "style": "fade"  # fade, slide, none
+    })
+
+def save_animation_settings(settings: dict):
+    """Save animation settings."""
+    cfg = get_config()
+    cfg["animations"] = settings
+    write_config(cfg)
+
 # ---------------- About Dialog ----------------
 def show_about_dialog():
     dlg = QDialog(mw)
@@ -1113,6 +1211,264 @@ def show_advanced_settings():
 
     dlg.exec()
 
+# ---------------- Theme Preview Dialog ----------------
+def show_theme_preview():
+    """Show visual preview of all themes."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Theme Preview")
+    dlg.resize(800, 600)
+    layout = QVBoxLayout(dlg)
+
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    scroll_layout = QVBoxLayout(scroll_widget)
+
+    # Get all available themes
+    all_themes = list(THEME_OPTIONS) + list(ACCESSIBILITY_THEMES)
+    custom_themes = get_custom_themes()
+    for name in custom_themes.keys():
+        all_themes.append((name.replace("_", " ").title(), name))
+
+    for label, theme_key in all_themes:
+        if theme_key not in PALETTES:
+            continue
+
+        # Create preview frame
+        frame = QFrame()
+        frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
+        frame_layout = QVBoxLayout(frame)
+
+        palette = PALETTES[theme_key]
+
+        # Theme name
+        name_label = QLabel(f"<b>{label}</b>")
+        frame_layout.addWidget(name_label)
+
+        # Color preview boxes
+        colors_layout = QHBoxLayout()
+        for color_key in ["bg", "fg", "accent", "button", "input"]:
+            color_box = QLabel(color_key.upper())
+            color_box.setStyleSheet(
+                f"background: {palette.get(color_key, '#FFF')}; "
+                f"color: {palette.get('fg', '#000')}; "
+                f"border: 1px solid {palette.get('border', '#CCC')}; "
+                f"padding: 10px; min-width: 60px;"
+            )
+            color_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            colors_layout.addWidget(color_box)
+        frame_layout.addLayout(colors_layout)
+
+        # Apply button
+        apply_btn = QPushButton("Apply This Theme")
+        apply_btn.clicked.connect(lambda _, t=theme_key: (set_theme(t), dlg.accept()))
+        frame_layout.addWidget(apply_btn)
+
+        scroll_layout.addWidget(frame)
+
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Scheduled Themes Dialog ----------------
+def show_scheduled_themes_dialog():
+    """Show dialog to configure scheduled theme switching."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Scheduled Theme Switching")
+    dlg.resize(600, 500)
+    layout = QVBoxLayout(dlg)
+
+    schedule = get_scheduled_themes()
+
+    # Enable/disable checkbox
+    enabled_cb = QCheckBox("Enable scheduled theme switching")
+    enabled_cb.setChecked(schedule.get("enabled", False))
+    layout.addWidget(enabled_cb)
+
+    # Time periods
+    periods_layout = QGridLayout()
+    periods_layout.addWidget(QLabel("<b>Period</b>"), 0, 0)
+    periods_layout.addWidget(QLabel("<b>Time</b>"), 0, 1)
+    periods_layout.addWidget(QLabel("<b>Theme</b>"), 0, 2)
+
+    time_inputs = {}
+    theme_combos = {}
+    periods = ["morning", "afternoon", "evening", "night"]
+    period_labels = ["Morning", "Afternoon", "Evening", "Night"]
+
+    for idx, (period, label) in enumerate(zip(periods, period_labels), 1):
+        periods_layout.addWidget(QLabel(label), idx, 0)
+
+        # Time input
+        time_edit = QLineEdit(schedule.get(period, {}).get("time", "00:00"))
+        time_edit.setPlaceholderText("HH:MM")
+        time_inputs[period] = time_edit
+        periods_layout.addWidget(time_edit, idx, 1)
+
+        # Theme combo
+        theme_combo = QComboBox()
+        all_themes = [key for _, key in THEME_OPTIONS + ACCESSIBILITY_THEMES]
+        theme_combo.addItems(all_themes)
+        current_theme = schedule.get(period, {}).get("theme", "sepia_word")
+        if current_theme in all_themes:
+            theme_combo.setCurrentText(current_theme)
+        theme_combos[period] = theme_combo
+        periods_layout.addWidget(theme_combo, idx, 2)
+
+    layout.addLayout(periods_layout)
+
+    # Save button
+    def save_schedule():
+        new_schedule = {
+            "enabled": enabled_cb.isChecked()
+        }
+        for period in periods:
+            new_schedule[period] = {
+                "time": time_inputs[period].text(),
+                "theme": theme_combos[period].currentText()
+            }
+        save_scheduled_themes(new_schedule)
+        tooltip("Scheduled themes saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save")
+    save_btn.clicked.connect(save_schedule)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
+# ---------------- Deck Themes Dialog ----------------
+def show_deck_themes_dialog():
+    """Show dialog to configure per-deck themes."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Per-Deck Themes")
+    dlg.resize(600, 400)
+    layout = QVBoxLayout(dlg)
+
+    info = QLabel("Set different themes for different decks.")
+    layout.addWidget(info)
+
+    # Current deck themes
+    deck_themes = get_deck_themes()
+    themes_list = QTextEdit()
+    themes_list.setReadOnly(True)
+
+    def refresh_list():
+        if not deck_themes:
+            themes_list.setPlainText("No deck-specific themes set.")
+        else:
+            text = ""
+            for deck, theme in deck_themes.items():
+                text += f"• {deck}: {theme}\n"
+            themes_list.setPlainText(text)
+
+    refresh_list()
+    layout.addWidget(themes_list)
+
+    # Set deck theme
+    set_layout = QGridLayout()
+    set_layout.addWidget(QLabel("Deck Name:"), 0, 0)
+    deck_input = QLineEdit()
+    set_layout.addWidget(deck_input, 0, 1)
+
+    set_layout.addWidget(QLabel("Theme:"), 1, 0)
+    theme_combo = QComboBox()
+    all_themes = [key for _, key in THEME_OPTIONS + ACCESSIBILITY_THEMES]
+    theme_combo.addItems(all_themes)
+    set_layout.addWidget(theme_combo, 1, 1)
+
+    def set_theme_for_deck():
+        deck = deck_input.text().strip()
+        theme = theme_combo.currentText()
+        if deck:
+            set_deck_theme(deck, theme)
+            deck_themes[deck] = theme
+            refresh_list()
+            deck_input.clear()
+
+    set_btn = QPushButton("Set Theme for Deck")
+    set_btn.clicked.connect(set_theme_for_deck)
+    set_layout.addWidget(set_btn, 2, 0, 1, 2)
+    layout.addLayout(set_layout)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.accept)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Animation Settings Dialog ----------------
+def show_animation_settings():
+    """Show dialog to configure theme animations."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Animation Settings")
+    dlg.resize(400, 300)
+    layout = QVBoxLayout(dlg)
+
+    settings = get_animation_settings()
+
+    # Enable animations
+    enabled_cb = QCheckBox("Enable theme transition animations")
+    enabled_cb.setChecked(settings.get("enabled", True))
+    layout.addWidget(enabled_cb)
+
+    # Duration
+    duration_layout = QHBoxLayout()
+    duration_layout.addWidget(QLabel("Duration (ms):"))
+    duration_spin = QSpinBox()
+    duration_spin.setMinimum(100)
+    duration_spin.setMaximum(2000)
+    duration_spin.setValue(settings.get("duration", 300))
+    duration_layout.addWidget(duration_spin)
+    layout.addLayout(duration_layout)
+
+    # Style
+    style_layout = QVBoxLayout()
+    style_layout.addWidget(QLabel("Animation Style:"))
+    style_group = QButtonGroup(dlg)
+
+    fade_rb = QRadioButton("Fade")
+    fade_rb.setChecked(settings.get("style", "fade") == "fade")
+    style_group.addButton(fade_rb)
+    style_layout.addWidget(fade_rb)
+
+    none_rb = QRadioButton("None (Instant)")
+    none_rb.setChecked(settings.get("style", "fade") == "none")
+    style_group.addButton(none_rb)
+    style_layout.addWidget(none_rb)
+
+    layout.addLayout(style_layout)
+
+    # Save button
+    def save_settings():
+        new_settings = {
+            "enabled": enabled_cb.isChecked(),
+            "duration": duration_spin.value(),
+            "style": "fade" if fade_rb.isChecked() else "none"
+        }
+        save_animation_settings(new_settings)
+        tooltip("Animation settings saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
 # ---------------- Menu ----------------
 
 def set_theme(theme: Theme):
@@ -1179,6 +1535,10 @@ def add_menu():
     m.addSeparator()
 
     # ---- Advanced Features ----
+    actPreview = QAction("Theme Preview Gallery...", mw)
+    actPreview.triggered.connect(show_theme_preview)
+    m.addAction(actPreview)
+
     actAdvanced = QAction("Advanced Settings...", mw)
     actAdvanced.triggered.connect(show_advanced_settings)
     m.addAction(actAdvanced)
@@ -1190,6 +1550,21 @@ def add_menu():
     actPresets = QAction("Manage Presets...", mw)
     actPresets.triggered.connect(show_presets_manager)
     m.addAction(actPresets)
+
+    m.addSeparator()
+
+    # ---- Scheduling & Per-Deck ----
+    actScheduled = QAction("Scheduled Theme Switching...", mw)
+    actScheduled.triggered.connect(show_scheduled_themes_dialog)
+    m.addAction(actScheduled)
+
+    actDeckThemes = QAction("Per-Deck Themes...", mw)
+    actDeckThemes.triggered.connect(show_deck_themes_dialog)
+    m.addAction(actDeckThemes)
+
+    actAnimations = QAction("Animation Settings...", mw)
+    actAnimations.triggered.connect(show_animation_settings)
+    m.addAction(actAnimations)
 
     m.addSeparator()
 
@@ -1242,7 +1617,20 @@ def on_profile_open():
         for name, palette in custom_themes.items():
             PALETTES[name] = palette
         mw._ankitwin_menu = True
+
+    # Check scheduled theme on startup
+    check_scheduled_theme()
+
+    # Apply current theme
     apply_theme_everywhere(get_active_theme())
+
+    # Set up timer to check scheduled themes every 5 minutes
+    if not hasattr(mw, "_ankitwin_timer"):
+        from aqt.qt import QTimer
+        timer = QTimer(mw)
+        timer.timeout.connect(check_scheduled_theme)
+        timer.start(300000)  # 5 minutes in milliseconds
+        mw._ankitwin_timer = timer
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
