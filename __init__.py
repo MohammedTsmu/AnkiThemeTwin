@@ -10,12 +10,11 @@ from aqt.qt import (
 from aqt.utils import openLink
 from typing import Literal, Any
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
-    "sepia_special", "dark_warm_soft", "dark_neutral_soft",
-    "blue_light", "olive_green", "true_black"
+    "sepia_special", "blue_light", "olive_green"
 ]
 
 THEME_OPTIONS = [
@@ -26,9 +25,6 @@ THEME_OPTIONS = [
     ("Gray (Paper)", "gray_paper"),
     ("Blue Light (Evening)", "blue_light"),
     ("Olive Green (Natural)", "olive_green"),
-    ("Dark • Warm (Soft)", "dark_warm_soft"),
-    ("Dark • Neutral (Soft)", "dark_neutral_soft"),
-    ("True Black (OLED)", "true_black"),
 ]
 
 def get_config():
@@ -53,21 +49,12 @@ GRAY_PAPER = {"bg":"#D9D9D9","fg":"#1C1C1C","muted":"#3F3F3F","border":"#BFBFBF"
 SEPIA_SPECIAL = {"bg":"#EEDFC6","fg":"#201A16","muted":"#54483F","border":"#CDB99F",
     "accent":"#6D523F","button":"#E6D3B7","buttonText":"#201A16",
     "input":"#FAF2E4","inputText":"#201A16","hover":"#DFC9A9","selection":"#D2BC9C"}
-DARK_WARM_SOFT = {"bg":"#3D3530","fg":"#F5F1EA","muted":"#B8AEA3","border":"#7A6D60",
-    "accent":"#FDB863","button":"#4A4038","buttonText":"#F5F1EA",
-    "input":"#322D29","inputText":"#F5F1EA","hover":"#524940","selection":"#6B5E52"}
-DARK_NEUTRAL_SOFT = {"bg":"#323232","fg":"#E8E8E8","muted":"#9E9E9E","border":"#4A4A4A",
-    "accent":"#5B9EFF","button":"#3E3E3E","buttonText":"#E8E8E8",
-    "input":"#2A2A2A","inputText":"#E8E8E8","hover":"#454545","selection":"#555555"}
 BLUE_LIGHT = {"bg":"#E8F0F8","fg":"#1A2330","muted":"#4A5568","border":"#C5D5E5",
     "accent":"#2C5AA0","button":"#DDE8F5","buttonText":"#1A2330",
     "input":"#F5F8FC","inputText":"#1A2330","hover":"#D5E3F2","selection":"#C0D8ED"}
 OLIVE_GREEN = {"bg":"#EBF0E4","fg":"#2A2F24","muted":"#4F5449","border":"#D0D9C5",
     "accent":"#5A7A3C","button":"#E2EAD8","buttonText":"#2A2F24",
     "input":"#F5F8F0","inputText":"#2A2F24","hover":"#DDE7D0","selection":"#D0DFBC"}
-TRUE_BLACK = {"bg":"#0A0A0A","fg":"#E5E5E5","muted":"#A0A0A0","border":"#303030",
-    "accent":"#4A9EFF","button":"#1C1C1C","buttonText":"#E5E5E5",
-    "input":"#141414","inputText":"#E5E5E5","hover":"#252525","selection":"#353535"}
 
 PALETTES = {
     "sepia_word": SEPIA_WORD,
@@ -75,11 +62,8 @@ PALETTES = {
     "gray_word": GRAY_WORD,
     "gray_paper": GRAY_PAPER,
     "sepia_special": SEPIA_SPECIAL,
-    "dark_warm_soft": DARK_WARM_SOFT,
-    "dark_neutral_soft": DARK_NEUTRAL_SOFT,
     "blue_light": BLUE_LIGHT,
     "olive_green": OLIVE_GREEN,
-    "true_black": TRUE_BLACK,
 }
 
 def palette_for(theme: Theme) -> dict:
@@ -87,30 +71,13 @@ def palette_for(theme: Theme) -> dict:
     return PALETTES[theme]
 
 def normalize_theme(t: str) -> Theme:
-    legacy = {"sepia":"sepia_word","gray":"gray_word","dark":"dark_neutral_soft"}
+    legacy = {"sepia":"sepia_word","gray":"gray_word"}
     v = legacy.get(t, t)
     return v if v in PALETTES else "sepia_special"
 
-# ---------------- System theme detection ----------------
-def is_system_dark() -> bool:
-    """Detect if the OS is currently in dark mode."""
-    try:
-        scheme = QApplication.instance().styleHints().colorScheme()
-        return scheme == Qt.ColorScheme.Dark
-    except (AttributeError, RuntimeError):
-        # Fallback for older Qt 6 builds without colorScheme()
-        app = QApplication.instance()
-        if app:
-            bg = app.palette().color(app.palette().ColorRole.Window)
-            return bg.lightnessF() < 0.5
-        return False
-
 def get_active_theme() -> Theme:
-    """Return the theme that should be applied right now."""
+    """Return the currently configured theme."""
     cfg = get_config()
-    if cfg.get("followSystem", False):
-        key = "darkTheme" if is_system_dark() else "lightTheme"
-        return normalize_theme(cfg.get(key, "sepia_special" if key == "lightTheme" else "dark_neutral_soft"))
     return normalize_theme(cfg.get("currentTheme", "sepia_special"))
 
 # ---------------- CSS / QSS ----------------
@@ -700,27 +667,6 @@ def apply_theme_everywhere(theme: Theme):
     apply_qt_styles(theme)
     refresh_all_webviews()
 
-# ---------------- System theme change listener ----------------
-_system_listener_connected = False
-
-def _on_system_scheme_changed(*args):
-    cfg = get_config()
-    if cfg.get("followSystem", False):
-        apply_theme_everywhere(get_active_theme())
-
-def _connect_system_listener():
-    global _system_listener_connected
-    if _system_listener_connected:
-        return
-    try:
-        QApplication.instance().styleHints().colorSchemeChanged.connect(
-            _on_system_scheme_changed
-        )
-        _system_listener_connected = True
-    except (AttributeError, RuntimeError):
-        # Older Qt without colorSchemeChanged signal
-        pass
-
 # ---------------- About Dialog ----------------
 def show_about_dialog():
     dlg = QDialog(mw)
@@ -729,8 +675,7 @@ def show_about_dialog():
     lbl = QLabel(
         '<div style="font-size:14px;">'
         f'<b>AnkiThemeTwin</b> v{VERSION}<br>'
-        '10 eye-comfort themes with high readability.<br>'
-        'Follows system dark / light mode automatically.<br>'
+        '7 eye-comfort light themes with high readability.<br>'
         'Configurable font sizes and comprehensive styling.<br><br>'
         'Author: <b>Dr. Mohammed</b><br>'
         '<a href="https://github.com/MohammedTsmu/AnkiThemeTwin">'
@@ -750,42 +695,14 @@ def show_about_dialog():
     dlg.exec()
 
 # ---------------- Menu ----------------
-_follow_system_action = None  # keep a reference for checkbox state
 
 def set_theme(theme: Theme):
-    """Set a manual theme (disables follow-system)."""
+    """Set the current theme."""
     theme = normalize_theme(theme)
     cfg = get_config()
     cfg["currentTheme"] = theme
-    cfg["followSystem"] = False
     write_config(cfg)
-    if _follow_system_action:
-        _follow_system_action.setChecked(False)
     apply_theme_everywhere(theme)
-
-def toggle_follow_system(checked: bool):
-    cfg = get_config()
-    cfg["followSystem"] = checked
-    write_config(cfg)
-    apply_theme_everywhere(get_active_theme())
-
-def set_light_theme(theme: Theme):
-    """Set the theme used when system is in light mode."""
-    theme = normalize_theme(theme)
-    cfg = get_config()
-    cfg["lightTheme"] = theme
-    write_config(cfg)
-    if cfg.get("followSystem", False) and not is_system_dark():
-        apply_theme_everywhere(theme)
-
-def set_dark_theme(theme: Theme):
-    """Set the theme used when system is in dark mode."""
-    theme = normalize_theme(theme)
-    cfg = get_config()
-    cfg["darkTheme"] = theme
-    write_config(cfg)
-    if cfg.get("followSystem", False) and is_system_dark():
-        apply_theme_everywhere(theme)
 
 def set_font_size(size: int):
     """Set the font size and refresh all views. Valid range: 8-72px."""
@@ -797,46 +714,14 @@ def set_font_size(size: int):
     write_config(cfg)
     apply_theme_everywhere(get_active_theme())
 
-def _build_theme_submenu(parent: QMenu, setter, current_key: str):
-    """Build a submenu of radio-button theme choices."""
-    cfg = get_config()
-    current = cfg.get(current_key, "")
-    group = QActionGroup(parent)
-    group.setExclusive(True)
-    for label, key in THEME_OPTIONS:
-        act = QAction(label, parent, checkable=True)
-        act.setChecked(normalize_theme(current) == key)
-        act.triggered.connect(lambda _, k=key: setter(k))
-        group.addAction(act)
-        parent.addAction(act)
-
 def add_menu():
-    global _follow_system_action
-
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
 
-    # ---- Direct theme choices (manual mode) ----
+    # ---- Direct theme choices ----
     for label, key in THEME_OPTIONS:
         act = QAction(label, mw)
         act.triggered.connect(lambda _, k=key: set_theme(k))
         m.addAction(act)
-
-    m.addSeparator()
-
-    # ---- Follow System toggle ----
-    _follow_system_action = QAction("Follow System Theme", mw, checkable=True)
-    _follow_system_action.setChecked(get_config().get("followSystem", False))
-    _follow_system_action.triggered.connect(toggle_follow_system)
-    m.addAction(_follow_system_action)
-
-    # ---- Light / Dark theme submenus ----
-    light_menu = QMenu("Light Mode Theme", m)
-    _build_theme_submenu(light_menu, set_light_theme, "lightTheme")
-    m.addMenu(light_menu)
-
-    dark_menu = QMenu("Dark Mode Theme", m)
-    _build_theme_submenu(dark_menu, set_dark_theme, "darkTheme")
-    m.addMenu(dark_menu)
 
     m.addSeparator()
 
@@ -879,7 +764,6 @@ def on_profile_open():
     if not getattr(mw, "_ankitwin_menu", False):
         add_menu()
         mw._ankitwin_menu = True
-    _connect_system_listener()
     apply_theme_everywhere(get_active_theme())
 
 gui_hooks.profile_did_open.append(on_profile_open)

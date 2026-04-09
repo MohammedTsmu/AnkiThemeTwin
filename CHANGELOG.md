@@ -2,6 +2,32 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.3.0] - 2026-04-09
+
+### Removed
+- **Dark Themes**: Removed all dark themes to focus on light, eye-comfort themes
+  - Removed Dark • Warm (Soft)
+  - Removed Dark • Neutral (Soft)
+  - Removed True Black (OLED)
+- **System Theme Detection**: Removed automatic dark/light mode switching
+  - Removed "Follow System Theme" toggle
+  - Removed system color scheme detection
+  - Removed "Light Mode Theme" and "Dark Mode Theme" submenus
+- Simplified configuration by removing `followSystem`, `lightTheme`, and `darkTheme` options
+
+### Changed
+- Updated to version 1.3.0
+- Simplified menu structure - direct theme selection only
+- Updated About dialog to reflect 7 light themes
+- Updated README with light-theme-only recommendations
+- Streamlined configuration to `currentTheme` and `fontSize` only
+
+### Benefits
+- Cleaner, more focused user experience
+- Simplified codebase (removed ~130 lines of code)
+- Faster theme application without system detection overhead
+- All themes now optimized for readability and eye comfort in various lighting conditions
+
 ## [1.2.0] - 2026-04-09
 
 ### Added
@@ -63,7 +89,7 @@ All notable changes to AnkiThemeTwin will be documented in this file.
 ## [1.1.0] - Initial Release
 
 ### Added
-- 7 high-readability themes (Sepia Word, Sepia Paper, Sepia Special, Gray Word, Gray Paper, Dark Warm Soft, Dark Neutral Soft)
+- 7 high-readability themes (Sepia Word, Sepia Paper, Sepia Special, Gray Word, Gray Paper, and 2 dark themes)
 - Follow System Theme feature
 - Instant theme updates without restart
 - System dark mode detection
