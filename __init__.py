@@ -155,107 +155,172 @@ def css_vars(p):
     font_family = get_font_family()
     line_height = get_line_height()
     letter_spacing = get_letter_spacing()
+    anim_settings = get_animation_settings()
+
+    # Animation CSS based on settings
+    transitions = ""
+    if anim_settings.get("enabled", True):
+        duration = anim_settings.get("duration", 300)
+        transitions = f"transition: all {duration}ms ease-in-out;"
+
     return (
-        # Base styles
+        # Base styles with smooth transitions
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
         f'  font-family:{font_family} !important;'
         f"  line-height:{line_height}; font-size:{font_size}px;"
         f"  letter-spacing:{letter_spacing}px;"
         "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
+        f"  {transitions}"
         "}"
         # All text elements
         f"p, span, div, li, label {{ color:{p['fg']} !important; }}"
-        # Links and selection
-        f"a {{ color:{p['accent']} !important; text-decoration:underline; }}"
-        f"a:hover {{ color:{p['hover']} !important; }}"
+        # Links and selection with transitions
+        f"a {{ color:{p['accent']} !important; text-decoration:underline; {transitions} }}"
+        f"a:hover {{ color:{p['hover']} !important; text-shadow:0 0 8px {p['accent']}44; }}"
         f"::selection {{ background:{p['selection']}; color:{p['fg']}; }}"
-        # Buttons and inputs in webviews
+        # Buttons with enhanced visual effects
         f"button, .btn, input[type='button'], input[type='submit'] {{"
-        f"  background:{p['button']} !important; color:{p['buttonText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:4px;"
+        f"  background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important;"
+        f"  color:{p['buttonText']} !important;"
+        f"  border:1px solid {p['border']} !important; border-radius:6px;"
         f"  padding:6px 12px; cursor:pointer;"
+        f"  box-shadow:0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);"
+        f"  {transitions}"
         "}"
-        f"button:hover, .btn:hover {{ background:{p['hover']} !important; }}"
-        # Input fields
+        f"button:hover, .btn:hover {{"
+        f"  background:linear-gradient(180deg, {p['hover']} 0%, {p['button']} 100%) !important;"
+        f"  box-shadow:0 4px 8px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);"
+        f"  transform:translateY(-1px);"
+        "}}"
+        f"button:active, .btn:active {{"
+        f"  transform:translateY(1px);"
+        f"  box-shadow:0 1px 2px rgba(0,0,0,0.1) inset;"
+        "}}"
+        # Input fields with enhanced focus effects
         f"input, textarea, select {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:3px;"
+        f"  border:1px solid {p['border']} !important; border-radius:4px;"
         f"  padding:4px 8px;"
+        f"  {transitions}"
         "}"
         f"input:focus, textarea:focus, select:focus {{"
         f"  border-color:{p['accent']} !important; outline:none;"
-        f"  box-shadow:0 0 0 2px {p['accent']}33;"
-        "}"
-        # Contenteditable divs (Anki editor fields)
+        f"  box-shadow:0 0 0 3px {p['accent']}33, 0 4px 6px rgba(0,0,0,0.1);"
+        f"  transform:scale(1.01);"
+        "}}"
+        # Contenteditable divs (Anki editor fields) with enhanced styling
         f"[contenteditable='true'], [contenteditable='plaintext-only'] {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:3px;"
+        f"  border:1px solid {p['border']} !important; border-radius:4px;"
         f"  padding:8px !important; min-height:60px !important;"
+        f"  {transitions}"
+        f"  box-shadow:0 1px 3px rgba(0,0,0,0.05);"
         "}"
         f"[contenteditable='true']:focus, [contenteditable='plaintext-only']:focus {{"
         f"  border-color:{p['accent']} !important; outline:none !important;"
-        f"  box-shadow:0 0 0 2px {p['accent']}33 !important;"
+        f"  box-shadow:0 0 0 3px {p['accent']}33, 0 4px 6px rgba(0,0,0,0.1) !important;"
         "}"
-        # Checkboxes and radio buttons
+        # Checkboxes and radio buttons with transitions
         f"input[type='checkbox'], input[type='radio'] {{"
         f"  border:2px solid {p['border']} !important; background:{p['input']} !important;"
+        f"  {transitions}"
         "}"
-        # Card content (reviewer)
+        # Card content (reviewer) with depth and animation
         f".card, .card1, .card2, .card3 {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        f"  border-radius:8px; padding:20px;"
+        f"  box-shadow:0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);"
+        f"  {transitions}"
+        "}}"
+        # Card fade-in animation
+        "@keyframes cardFadeIn {"
+        "  from { opacity:0; transform:translateY(10px); }"
+        "  to { opacity:1; transform:translateY(0); }"
         "}"
-        # Editor fields
+        f".card {{ animation:cardFadeIn 0.3s ease-out; }}"
+        # Editor fields with subtle shadow
         f".field {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         f"  border:1px solid {p['border']} !important;"
-        "}"
-        # Tables
-        f"table {{ background:{p['bg']} !important; color:{p['fg']} !important; }}"
-        f"th {{ background:{p['button']} !important; color:{p['buttonText']} !important;"
-        f"  border:1px solid {p['border']} !important; padding:8px; }}"
-        f"td {{ border:1px solid {p['border']} !important; padding:6px; color:{p['fg']} !important; }}"
-        f"tr:hover {{ background:{p['hover']} !important; }}"
+        f"  border-radius:4px; padding:8px;"
+        f"  box-shadow:0 1px 3px rgba(0,0,0,0.05);"
+        f"  {transitions}"
+        "}}"
+        # Tables with enhanced styling
+        f"table {{ background:{p['bg']} !important; color:{p['fg']} !important; border-collapse:separate; border-spacing:0; }}"
+        f"th {{ background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important; color:{p['buttonText']} !important;"
+        f"  border:1px solid {p['border']} !important; padding:8px; font-weight:600; }}"
+        f"td {{ border:1px solid {p['border']} !important; padding:6px; color:{p['fg']} !important; {transitions} }}"
+        f"tr:hover {{ background:{p['hover']} !important; box-shadow:0 2px 4px rgba(0,0,0,0.05); }}"
         f"tr.drag-hover {{ background:{p['selection']} !important; }}"
         # Lists
         f"ul, ol {{ color:{p['fg']} !important; }}"
         f"li {{ color:{p['fg']} !important; }}"
-        # Code blocks
+        # Code blocks with enhanced styling
         f"code, pre {{"
         f"  background:{p['input']} !important; color:{p['fg']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:3px;"
+        f"  border:1px solid {p['border']} !important; border-radius:4px;"
         f"  padding:2px 4px; font-family:monospace;"
+        f"  box-shadow:0 1px 2px rgba(0,0,0,0.05);"
         "}"
-        # Headings
-        f"h1, h2, h3, h4, h5, h6 {{ color:{p['fg']} !important; }}"
+        # Headings with subtle accents
+        f"h1, h2, h3, h4, h5, h6 {{ color:{p['fg']} !important; font-weight:600; }}"
+        f"h1 {{ border-bottom:2px solid {p['accent']}; padding-bottom:8px; }}"
+        f"h2 {{ border-bottom:1px solid {p['border']}; padding-bottom:6px; }}"
         # Horizontal rules
-        f"hr {{ border-color:{p['border']} !important; }}"
-        # Scrollbars (webkit)
+        f"hr {{ border:0; height:2px; background:linear-gradient(90deg, transparent, {p['border']}, transparent); }}"
+        # Scrollbars with enhanced styling
         f"::-webkit-scrollbar {{ width:12px; height:12px; }}"
-        f"::-webkit-scrollbar-track {{ background:{p['bg']}; }}"
-        f"::-webkit-scrollbar-thumb {{ background:{p['border']}; border-radius:6px; }}"
-        f"::-webkit-scrollbar-thumb:hover {{ background:{p['muted']}; }}"
-        # Dropdown menus and autocomplete
+        f"::-webkit-scrollbar-track {{ background:{p['bg']}; border-radius:6px; }}"
+        f"::-webkit-scrollbar-thumb {{"
+        f"  background:linear-gradient(180deg, {p['border']} 0%, {p['muted']} 100%);"
+        f"  border-radius:6px; border:2px solid {p['bg']};"
+        f"  {transitions}"
+        "}}"
+        f"::-webkit-scrollbar-thumb:hover {{"
+        f"  background:linear-gradient(180deg, {p['muted']} 0%, {p['accent']} 100%);"
+        f"  box-shadow:0 0 6px {p['accent']}33;"
+        "}}"
+        # Dropdown menus and autocomplete with animations
         f".autocomplete, .dropdown-menu {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important; box-shadow:0 2px 8px rgba(0,0,0,0.2);"
+        f"  border:1px solid {p['border']} !important;"
+        f"  box-shadow:0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);"
+        f"  border-radius:6px; overflow:hidden;"
         "}"
         f".autocomplete-item, .dropdown-item {{"
-        f"  color:{p['fg']} !important; padding:6px 12px;"
+        f"  color:{p['fg']} !important; padding:8px 12px;"
+        f"  {transitions}"
         "}"
         f".autocomplete-item:hover, .dropdown-item:hover {{"
         f"  background:{p['hover']} !important; color:{p['fg']} !important;"
+        f"  padding-left:16px;"
         "}"
         f".autocomplete-item.selected, .dropdown-item.selected {{"
         f"  background:{p['selection']} !important; color:{p['fg']} !important;"
+        f"  border-left:3px solid {p['accent']};"
         "}"
-        # Modal dialogs and overlays
+        # Modal dialogs with enhanced depth
+        "@keyframes modalFadeIn {"
+        "  from { opacity:0; transform:scale(0.95); }"
+        "  to { opacity:1; transform:scale(1); }"
+        "}"
         f".modal, .overlay {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        f"  border:1px solid {p['border']} !important;"
+        f"  border:1px solid {p['border']} !important; border-radius:8px;"
+        f"  box-shadow:0 10px 25px rgba(0,0,0,0.2), 0 6px 12px rgba(0,0,0,0.15);"
+        "  animation:modalFadeIn 0.2s ease-out;"
         "}"
-        f".modal-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border-bottom:1px solid {p['border']} !important; }}"
-        f".modal-footer {{ background:{p['button']} !important; border-top:1px solid {p['border']} !important; }}"
+        f".modal-header {{"
+        f"  background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important;"
+        f"  color:{p['buttonText']} !important; border-bottom:1px solid {p['border']} !important;"
+        f"  border-radius:8px 8px 0 0; padding:12px 16px;"
+        "}}"
+        f".modal-footer {{"
+        f"  background:{p['button']} !important; border-top:1px solid {p['border']} !important;"
+        f"  border-radius:0 0 8px 8px; padding:12px 16px;"
+        "}}"
     )
 
 def inject_css(web_content, ctx):
@@ -265,6 +330,10 @@ def inject_css(web_content, ctx):
 
     # Base CSS for all contexts
     base_css = css_vars(p)
+
+    # Add background pattern CSS if enabled
+    pattern = get_background_pattern()
+    pattern_css = get_pattern_css(p, pattern)
 
     # Context-specific CSS additions
     context_css = ""
@@ -366,7 +435,7 @@ def inject_css(web_content, ctx):
         """
 
     # Combine all CSS
-    full_css = base_css + context_css
+    full_css = base_css + pattern_css + context_css
 
     # Inject into page
     web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
@@ -930,6 +999,94 @@ def save_animation_settings(settings: dict):
     cfg = get_config()
     cfg["animations"] = settings
     write_config(cfg)
+
+# ---------------- Background Patterns ----------------
+def get_background_pattern() -> str:
+    """Get background pattern setting."""
+    cfg = get_config()
+    return cfg.get("backgroundPattern", "none")  # none, dots, grid, lines, subtle
+
+def set_background_pattern(pattern: str):
+    """Set background pattern."""
+    cfg = get_config()
+    cfg["backgroundPattern"] = pattern
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+    tooltip(f"Background pattern: {pattern}")
+
+def get_pattern_css(p: dict, pattern: str) -> str:
+    """Generate CSS for background patterns."""
+    if pattern == "none":
+        return ""
+    elif pattern == "dots":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle, {p['border']}22 1px, transparent 1px);
+            background-size: 20px 20px;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "grid":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(0deg, {p['border']}15 1px, transparent 1px),
+                linear-gradient(90deg, {p['border']}15 1px, transparent 1px);
+            background-size: 30px 30px;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "lines":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                {p['border']}10 2px,
+                {p['border']}10 4px
+            );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "subtle":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle at 20% 50%, {p['accent']}08 0%, transparent 50%),
+                              radial-gradient(circle at 80% 80%, {p['accent']}08 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    return ""
+
 
 # ---------------- Study Session Modes ----------------
 def get_study_mode() -> str:
@@ -1613,6 +1770,69 @@ def show_animation_settings():
 
     dlg.exec()
 
+# ---------------- Visual Enhancements Dialog ----------------
+def show_visual_enhancements_dialog():
+    """Show dialog to configure visual enhancements."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Visual Enhancements")
+    dlg.resize(450, 350)
+    layout = QVBoxLayout(dlg)
+
+    # Header
+    header = QLabel("<h3>Visual Enhancements</h3>")
+    layout.addWidget(header)
+
+    # Background pattern selection
+    pattern_group = QVBoxLayout()
+    pattern_group.addWidget(QLabel("Background Pattern:"))
+
+    current_pattern = get_background_pattern()
+    pattern_bg = QButtonGroup(dlg)
+
+    patterns = [
+        ("none", "None (Solid)"),
+        ("subtle", "Subtle Gradient"),
+        ("dots", "Dots"),
+        ("grid", "Grid"),
+        ("lines", "Horizontal Lines")
+    ]
+
+    for value, label in patterns:
+        rb = QRadioButton(label)
+        rb.setChecked(current_pattern == value)
+        rb.setProperty("pattern_value", value)
+        pattern_bg.addButton(rb)
+        pattern_group.addWidget(rb)
+
+    layout.addLayout(pattern_group)
+
+    # Info text
+    info = QLabel("Background patterns add subtle visual texture to your themes without affecting readability.")
+    info.setWordWrap(True)
+    info.setStyleSheet("color: gray; font-size: 11px; padding: 10px;")
+    layout.addWidget(info)
+
+    layout.addStretch()
+
+    # Buttons
+    def save_settings():
+        for button in pattern_bg.buttons():
+            if button.isChecked():
+                pattern_value = button.property("pattern_value")
+                set_background_pattern(pattern_value)
+                break
+        dlg.accept()
+
+    save_btn = QPushButton("Apply")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
 # ---------------- Study Mode Dialog ----------------
 def show_study_mode_dialog():
     """Show dialog to select study mode."""
@@ -1981,6 +2201,10 @@ def add_menu():
     actAnimations = QAction("Animation Settings...", mw)
     actAnimations.triggered.connect(show_animation_settings)
     m.addAction(actAnimations)
+
+    actVisualEnhancements = QAction("Visual Enhancements...", mw)
+    actVisualEnhancements.triggered.connect(show_visual_enhancements_dialog)
+    m.addAction(actVisualEnhancements)
 
     m.addSeparator()
 
