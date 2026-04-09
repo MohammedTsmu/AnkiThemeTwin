@@ -1,18 +1,30 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6)
-# 7 high-readability themes + About dialog + GitHub link
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.1.1
+# 7 high-readability themes + follow-system mode + instant updates
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
 from aqt import mw, gui_hooks
 from aqt.qt import (
-    QAction, QApplication,
-    QDialog, QVBoxLayout, QLabel, QPushButton,
+    QAction, QActionGroup, QApplication, QMenu,
+    QDialog, QVBoxLayout, QLabel, QPushButton, Qt,
 )
 from aqt.utils import openLink
 from typing import Literal
 
+VERSION = "1.1.1"
+
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
     "sepia_special", "dark_warm_soft", "dark_neutral_soft"
+]
+
+THEME_OPTIONS = [
+    ("Sepia (Word-like)", "sepia_word"),
+    ("Sepia (Paper)", "sepia_paper"),
+    ("Sepia (Special • Dr. M)", "sepia_special"),
+    ("Gray (Word-like)", "gray_word"),
+    ("Gray (Paper)", "gray_paper"),
+    ("Dark • Warm (Soft)", "dark_warm_soft"),
+    ("Dark • Neutral (Soft)", "dark_neutral_soft"),
 ]
 
 def get_config():
@@ -61,88 +73,234 @@ def normalize_theme(t: str) -> Theme:
     v = legacy.get(t, t)
     return v if v in PALETTES else "sepia_special"
 
-# ---------------- CSS/QSS ----------------
+# ---------------- System theme detection ----------------
+def is_system_dark() -> bool:
+    """Detect if the OS is currently in dark mode."""
+    try:
+        scheme = QApplication.instance().styleHints().colorScheme()
+        return scheme == Qt.ColorScheme.Dark
+    except Exception:
+        # Fallback for older Qt 6 builds without colorScheme()
+        app = QApplication.instance()
+        if app:
+            bg = app.palette().color(app.palette().ColorRole.Window)
+            return bg.lightnessF() < 0.5
+        return False
+
+def get_active_theme() -> Theme:
+    """Return the theme that should be applied right now."""
+    cfg = get_config()
+    if cfg.get("followSystem", False):
+        key = "darkTheme" if is_system_dark() else "lightTheme"
+        return normalize_theme(cfg.get(key, "sepia_special" if key == "lightTheme" else "dark_neutral_soft"))
+    return normalize_theme(cfg.get("currentTheme", "sepia_special"))
+
+# ---------------- CSS / QSS ----------------
+_STYLE_ID = "ankithemetwin-style"
+
 def css_vars(p):
-    return f"""
-    html, body {{
-      background:{p['bg']} !important; color:{p['fg']} !important;
-      font-family:"Segoe UI","Amiri","Arial",sans-serif !important;
-      line-height:1.58; font-size:16px;
-      -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
-    }}
-    a {{ color:{p['accent']} !important; text-decoration:underline; }}
-    ::selection {{ background:{p['selection']}; color:{p['fg']}; }}
-    """
+    return (
+        "html, body {"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        '  font-family:"Segoe UI","Amiri","Arial",sans-serif !important;'
+        "  line-height:1.58; font-size:16px;"
+        "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
+        "}"
+        f"a {{ color:{p['accent']} !important; text-decoration:underline; }}"
+        f"::selection {{ background:{p['selection']}; color:{p['fg']}; }}"
+    )
 
 def inject_css(web_content, ctx):
-    theme = normalize_theme(get_config().get("currentTheme","sepia_special"))
-    web_content.head += f"<style>{css_vars(palette_for(theme))}</style>"
+    theme = get_active_theme()
+    web_content.head += f'<style id="{_STYLE_ID}">{css_vars(palette_for(theme))}</style>'
 
 def qss(p):
     return f"QWidget {{ background:{p['bg']}; color:{p['fg']}; }}"
 
 def apply_qt_styles(theme: Theme):
     app = QApplication.instance()
-    if app: app.setStyleSheet(qss(palette_for(theme)))
+    if app:
+        app.setStyleSheet(qss(palette_for(theme)))
+
+# ---------------- Instant refresh ----------------
+def _build_refresh_js(theme: Theme) -> str:
+    css = css_vars(palette_for(theme))
+    # Escape backticks and ${} for JS template literal safety
+    css_escaped = css.replace("\\", "\\\\").replace("`", "\\`").replace("${", "$\\{")
+    return (
+        "(function(){"
+        f"var id='{_STYLE_ID}';"
+        "var el=document.getElementById(id);"
+        "if(!el){el=document.createElement('style');el.id=id;document.head.appendChild(el);}"
+        f"el.textContent=`{css_escaped}`;"
+        "})();"
+    )
+
+def refresh_all_webviews():
+    """Push updated CSS into every open webview instantly."""
+    theme = get_active_theme()
+    js = _build_refresh_js(theme)
+    for attr in ("web", "bottomWeb"):
+        wv = getattr(mw, attr, None)
+        if wv:
+            try:
+                wv.eval(js)
+            except Exception:
+                pass
+
+def apply_theme_everywhere(theme: Theme):
+    """Apply QSS + refresh all webviews in one call."""
+    apply_qt_styles(theme)
+    refresh_all_webviews()
+
+# ---------------- System theme change listener ----------------
+_system_listener_connected = False
+
+def _on_system_scheme_changed(*args):
+    cfg = get_config()
+    if cfg.get("followSystem", False):
+        apply_theme_everywhere(get_active_theme())
+
+def _connect_system_listener():
+    global _system_listener_connected
+    if _system_listener_connected:
+        return
+    try:
+        QApplication.instance().styleHints().colorSchemeChanged.connect(
+            _on_system_scheme_changed
+        )
+        _system_listener_connected = True
+    except Exception:
+        pass  # Older Qt without colorSchemeChanged
 
 # ---------------- About Dialog ----------------
 def show_about_dialog():
-    dlg = QDialog(mw); dlg.setWindowTitle("About — AnkiThemeTwin")
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("About — AnkiThemeTwin")
     layout = QVBoxLayout(dlg)
     lbl = QLabel(
         '<div style="font-size:14px;">'
-        '<b>AnkiThemeTwin</b><br>'
-        'Eye-comfort themes with high readability.<br><br>'
+        f'<b>AnkiThemeTwin</b> v{VERSION}<br>'
+        'Eye-comfort themes with high readability.<br>'
+        'Follows system dark / light mode automatically.<br><br>'
         'Author: <b>Dr. Mohammed</b><br>'
         '<a href="https://github.com/MohammedTsmu/AnkiThemeTwin">'
         'GitHub: MohammedTsmu/AnkiThemeTwin</a>'
         '</div>'
     )
-    lbl.setOpenExternalLinks(True); layout.addWidget(lbl)
+    lbl.setOpenExternalLinks(True)
+    layout.addWidget(lbl)
     btn = QPushButton("Open GitHub")
     btn.clicked.connect(lambda: openLink("https://github.com/MohammedTsmu/AnkiThemeTwin"))
     layout.addWidget(btn)
-    closeBtn = QPushButton("Close"); closeBtn.clicked.connect(dlg.accept)
+    closeBtn = QPushButton("Close")
+    closeBtn.clicked.connect(dlg.accept)
     layout.addWidget(closeBtn)
-    dlg.setLayout(layout); dlg.resize(520,240); dlg.exec()
+    dlg.setLayout(layout)
+    dlg.resize(520, 260)
+    dlg.exec()
 
 # ---------------- Menu ----------------
+_follow_system_action = None  # keep a reference for checkbox state
+
 def set_theme(theme: Theme):
-    theme = normalize_theme(theme); cfg = get_config()
-    if cfg.get("currentTheme")!=theme:
-        cfg["currentTheme"]=theme; write_config(cfg)
-    apply_qt_styles(theme)
+    """Set a manual theme (disables follow-system)."""
+    theme = normalize_theme(theme)
+    cfg = get_config()
+    cfg["currentTheme"] = theme
+    cfg["followSystem"] = False
+    write_config(cfg)
+    if _follow_system_action:
+        _follow_system_action.setChecked(False)
+    apply_theme_everywhere(theme)
+
+def toggle_follow_system(checked: bool):
+    cfg = get_config()
+    cfg["followSystem"] = checked
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+
+def set_light_theme(theme: Theme):
+    """Set the theme used when system is in light mode."""
+    theme = normalize_theme(theme)
+    cfg = get_config()
+    cfg["lightTheme"] = theme
+    write_config(cfg)
+    if cfg.get("followSystem", False) and not is_system_dark():
+        apply_theme_everywhere(theme)
+
+def set_dark_theme(theme: Theme):
+    """Set the theme used when system is in dark mode."""
+    theme = normalize_theme(theme)
+    cfg = get_config()
+    cfg["darkTheme"] = theme
+    write_config(cfg)
+    if cfg.get("followSystem", False) and is_system_dark():
+        apply_theme_everywhere(theme)
+
+def _build_theme_submenu(parent: QMenu, setter, current_key: str):
+    """Build a submenu of radio-button theme choices."""
+    cfg = get_config()
+    current = cfg.get(current_key, "")
+    group = QActionGroup(parent)
+    group.setExclusive(True)
+    for label, key in THEME_OPTIONS:
+        act = QAction(label, parent, checkable=True)
+        act.setChecked(normalize_theme(current) == key)
+        act.triggered.connect(lambda _, k=key: setter(k))
+        group.addAction(act)
+        parent.addAction(act)
 
 def add_menu():
+    global _follow_system_action
+
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
-    options = [
-        ("Sepia (Word-like)","sepia_word"),
-        ("Sepia (Paper)","sepia_paper"),
-        ("Sepia (Special • Dr. M)","sepia_special"),
-        ("Gray (Word-like)","gray_word"),
-        ("Gray (Paper)","gray_paper"),
-        ("Dark • Warm (Soft)","dark_warm_soft"),
-        ("Dark • Neutral (Soft)","dark_neutral_soft"),
-    ]
-    for label,key in options:
-        act=QAction(label,mw); act.triggered.connect(lambda _,k=key:set_theme(k))
+
+    # ---- Direct theme choices (manual mode) ----
+    for label, key in THEME_OPTIONS:
+        act = QAction(label, mw)
+        act.triggered.connect(lambda _, k=key: set_theme(k))
         m.addAction(act)
+
     m.addSeparator()
-    actGitHub=QAction("Visit Project GitHub",mw)
+
+    # ---- Follow System toggle ----
+    _follow_system_action = QAction("Follow System Theme", mw, checkable=True)
+    _follow_system_action.setChecked(get_config().get("followSystem", False))
+    _follow_system_action.triggered.connect(toggle_follow_system)
+    m.addAction(_follow_system_action)
+
+    # ---- Light / Dark theme submenus ----
+    light_menu = QMenu("Light Mode Theme", m)
+    _build_theme_submenu(light_menu, set_light_theme, "lightTheme")
+    m.addMenu(light_menu)
+
+    dark_menu = QMenu("Dark Mode Theme", m)
+    _build_theme_submenu(dark_menu, set_dark_theme, "darkTheme")
+    m.addMenu(dark_menu)
+
+    m.addSeparator()
+
+    # ---- Links / About ----
+    actGitHub = QAction("Visit Project GitHub", mw)
     actGitHub.triggered.connect(lambda: openLink("https://github.com/MohammedTsmu/AnkiThemeTwin"))
     m.addAction(actGitHub)
-    actAbout=QAction("About AnkiThemeTwin",mw)
+
+    actAbout = QAction("About AnkiThemeTwin", mw)
     actAbout.triggered.connect(show_about_dialog)
     m.addAction(actAbout)
-    help_menu=mw.form.menuHelp
-    actAboutHelp=QAction("About AnkiThemeTwin",mw)
+
+    help_menu = mw.form.menuHelp
+    actAboutHelp = QAction("About AnkiThemeTwin", mw)
     actAboutHelp.triggered.connect(show_about_dialog)
     help_menu.addAction(actAboutHelp)
 
 def on_profile_open():
-    if not getattr(mw,"_ankitwin_menu",False):
-        add_menu(); mw._ankitwin_menu=True
-    apply_qt_styles(normalize_theme(get_config().get("currentTheme","sepia_special")))
+    if not getattr(mw, "_ankitwin_menu", False):
+        add_menu()
+        mw._ankitwin_menu = True
+    _connect_system_listener()
+    apply_theme_everywhere(get_active_theme())
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
