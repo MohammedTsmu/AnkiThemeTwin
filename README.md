@@ -5,16 +5,26 @@
 ---
 
 ## 🎨 Features
-- **7 High-Readability Themes**:
+- **10 High-Readability Themes**:
   - Sepia (Word-like)
   - Sepia (Paper)
   - Sepia (Special • Dr. Mohammed)
   - Gray (Word-like)
   - Gray (Paper)
+  - Blue Light (Evening) — NEW!
+  - Olive Green (Natural) — NEW!
   - Dark • Warm (Soft)
   - Dark • Neutral (Soft)
+  - True Black (OLED) — NEW!
+- **Configurable Font Sizes** — Choose from Small (14px), Medium (16px), Large (18px), or Extra Large (20px) for optimal readability.
 - **Follow System Theme** — automatically switch between a light and a dark theme based on the OS dark/light mode. Choose which theme to use for each mode.
-- **Instant Updates** — theme changes apply immediately to all open views (no need to leave and re-enter cards).
+- **Comprehensive Styling** — Enhanced styling for all Anki pages including:
+  - Card reviewer with optimized readability
+  - Editor fields with better contrast
+  - Buttons, menus, and toolbars
+  - Tables, scrollbars, and dialogs
+  - Input fields with focus indicators
+- **Instant Updates** — theme and font size changes apply immediately to all open views (no need to leave and re-enter cards).
 - Designed for **eye comfort** in bright or dim rooms.
 - **Fonts with high contrast** (passes WCAG AA guidelines).
 - Easy theme switching via **Tools → Theme: AnkiThemeTwin**.
