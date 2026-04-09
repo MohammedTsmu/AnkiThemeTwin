@@ -1,0 +1,263 @@
+# Changelog
+
+All notable changes to AnkiThemeTwin will be documented in this file.
+
+## [1.4.0] - 2026-04-09
+
+### Added - Major Feature Release
+
+#### Phase 1: Accessibility & Customization
+- **6 New Accessibility Themes**:
+  - High Contrast Light - Maximum contrast for visual impairments
+  - High Contrast Dark - Dark mode with high contrast
+  - Dyslexia Friendly - Yellow background optimized for dyslexic readers
+  - Deuteranopia Support - Color blindness optimized (red-green)
+  - Protanopia Support - Color blindness optimized (red-green variant)
+  - Tritanopia Support - Color blindness optimized (blue-yellow)
+
+- **Custom Theme Creator**:
+  - Visual color picker for all theme elements
+  - Create unlimited custom themes
+  - Export themes as JSON files
+  - Import themes from JSON files
+  - Share themes with other users
+
+- **Theme Presets System**:
+  - Save favorite theme + font combinations
+  - Quick-load presets
+  - Manage multiple presets
+  - Perfect for switching between study environments
+
+- **Theme Preview Gallery**:
+  - Visual preview of all themes before applying
+  - See color palettes at a glance
+  - One-click theme application
+
+- **Advanced Font Customization**:
+  - Custom font family selection
+  - Font size slider (8-32px)
+  - Line height adjustment (100-300%)
+  - Letter spacing control (-5px to +10px)
+  - 7 font size presets (12, 14, 16, 18, 20, 22, 24px)
+
+#### Phase 2: Intelligent Features
+- **Scheduled Theme Switching**:
+  - Auto-switch themes based on time of day
+  - Configure 4 time periods (morning, afternoon, evening, night)
+  - Each period can have its own theme
+  - Perfect for adapting to lighting conditions
+
+- **Per-Deck Themes**:
+  - Set different themes for different decks
+  - Auto-switch when reviewing specific decks
+  - Great for context switching between subjects
+
+- **Keyboard Shortcuts**:
+  - Ctrl+Shift+1-7: Quick theme switching
+  - Ctrl+Shift+=: Increase font size
+  - Ctrl+Shift+-: Decrease font size
+  - Enhanced visual feedback with icons
+
+- **Animation Settings**:
+  - Configurable theme transition animations
+  - Adjustable animation duration (100-2000ms)
+  - Multiple animation styles (fade, instant)
+
+#### Phase 3: Power User Features
+- **Study Session Modes**:
+  - Normal Mode - Standard settings
+  - Focus Mode - Larger text, higher contrast for concentration
+  - Speed Mode - Compact layout for rapid reviews
+  - Detail Mode - Maximum readability for complex material
+
+- **Quick Settings Panel**:
+  - Combined controls for theme, font, and mode
+  - Favorite theme quick access
+  - One-click preset application
+
+- **Configuration Backup & Restore**:
+  - Export complete configuration to JSON
+  - Import configuration from backup
+  - Versioned backups with timestamps
+  - Safely migrate settings between devices
+
+- **Theme Usage Statistics**:
+  - Track theme usage patterns
+  - View most-used themes
+  - Last used timestamps
+  - Usage count per theme
+
+- **Theme Organization**:
+  - Mark themes as favorites
+  - Add tags to themes for categorization
+  - Quick filter by favorites
+
+#### Phase 4: Visual Enhancements
+- **CSS Transitions & Animations**:
+  - Smooth transitions on all interactive elements
+  - Configurable animation duration
+  - Card fade-in animations
+  - Modal dialog entrance effects
+  - Hover state transitions
+
+- **Enhanced Visual Depth**:
+  - Card shadows for depth perception
+  - Layered shadow effects on buttons
+  - Elevated focus states
+  - Gradient overlays on buttons and headers
+
+- **Button Press Effects**:
+  - Transform animations on click
+  - Inset shadows for pressed state
+  - Elevation changes on hover
+  - Smooth state transitions
+
+- **Advanced Focus Indicators**:
+  - Multi-layer box shadows
+  - Scale transformations on focus
+  - Accent color glow effects
+  - Enhanced visibility for accessibility
+
+- **Gradient Enhancements**:
+  - Linear gradients on buttons
+  - Gradient scrollbar thumbs
+  - Gradient table headers
+  - Subtle accent gradients
+
+- **Background Patterns**:
+  - 5 pattern options: None, Subtle, Dots, Grid, Lines
+  - Subtle texture without affecting readability
+  - Configurable via Visual Enhancements dialog
+  - Pattern colors adapt to current theme
+
+- **Scrollbar Enhancements**:
+  - Gradient scrollbar thumbs
+  - Hover glow effects
+  - Rounded, modern design
+  - Border spacing for clarity
+
+- **Improved Typography**:
+  - Heading underlines with accent colors
+  - Font weight adjustments
+  - Gradient horizontal rules
+  - Better text hierarchy
+
+- **Modal & Dropdown Improvements**:
+  - Entrance animations
+  - Enhanced shadows for depth
+  - Rounded corners
+  - Slide-in effects on dropdown items
+  - Border accent on selected items
+
+- **Enhanced Keyboard Shortcut Feedback**:
+  - Icon-based visual notifications
+  - Themed notification messages
+  - Extended display duration (1500ms)
+  - Descriptive action feedback
+
+### Changed
+- Updated to version 1.4.0
+- Menu reorganized with new submenus for better organization
+- About dialog updated with new features list
+- Theme count increased from 7 to 13+ (plus unlimited custom themes)
+
+### Improved
+- Better accessibility for users with visual impairments
+- More flexible theming options
+- Enhanced user experience with previews and presets
+- Automatic theme adaptation with scheduling
+- More control over typography
+
+## [1.3.0] - 2026-04-09
+
+### Removed
+- **Dark Themes**: Removed all dark themes to focus on light, eye-comfort themes
+  - Removed Dark • Warm (Soft)
+  - Removed Dark • Neutral (Soft)
+  - Removed True Black (OLED)
+- **System Theme Detection**: Removed automatic dark/light mode switching
+  - Removed "Follow System Theme" toggle
+  - Removed system color scheme detection
+  - Removed "Light Mode Theme" and "Dark Mode Theme" submenus
+- Simplified configuration by removing `followSystem`, `lightTheme`, and `darkTheme` options
+
+### Changed
+- Updated to version 1.3.0
+- Simplified menu structure - direct theme selection only
+- Updated About dialog to reflect 7 light themes
+- Updated README with light-theme-only recommendations
+- Streamlined configuration to `currentTheme` and `fontSize` only
+
+### Benefits
+- Cleaner, more focused user experience
+- Simplified codebase (removed ~130 lines of code)
+- Faster theme application without system detection overhead
+- All themes now optimized for readability and eye comfort in various lighting conditions
+
+## [1.2.0] - 2026-04-09
+
+### Added
+- **3 New Themes**:
+  - Blue Light (Evening) - Cool blue tones for evening study, reduces eye strain
+  - Olive Green (Natural) - Warm natural tones for extended sessions
+  - True Black (OLED) - Perfect for OLED screens with pure black background
+- **Configurable Font Sizes**: Choose from Small (14px), Medium (16px), Large (18px), or Extra Large (20px)
+- **Comprehensive CSS Styling** for webviews:
+  - Enhanced buttons with hover states
+  - Styled input fields with focus indicators
+  - Table styling with header emphasis
+  - Card content optimization
+  - Editor field improvements
+  - Code block styling
+  - Custom scrollbar design
+- **Enhanced Qt/QSS Styling** for native widgets:
+  - All button types with states (hover, pressed, disabled)
+  - Input fields (QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox)
+  - Combo boxes with dropdown styling
+  - Tables and lists with alternating colors
+  - Menu bar and menu items
+  - Scrollbars (vertical and horizontal)
+  - Tabs with selection states
+  - Checkboxes and radio buttons
+  - Sliders with custom handles
+  - Toolbars and tool buttons
+  - Status bars
+  - Progress bars
+  - Dialogs
+  - Tooltips
+  - Group boxes
+  - Splitters
+- **Context-Specific Styling**: Different CSS for DeckBrowser, Reviewer, Editor, Overview, Browser, and Toolbars
+- **Theme Recommendations Guide** in README:
+  - By environment (sunlight, office, evening, night)
+  - By device type (OLED, LCD, e-ink)
+  - By preference (warm/cool tones, contrast)
+  - Font size recommendations
+
+### Changed
+- Increased version to 1.2.0
+- Updated About dialog to reflect new features
+- Improved CSS injection to be context-aware
+- Enhanced QSS to cover all major Qt widget types
+
+### Improved
+- Better readability across all Anki pages
+- More consistent styling between webviews and native UI
+- Better focus indicators for accessibility
+- Smoother hover and interaction states
+
+## [1.1.1] - 2026-04-09
+
+### Fixed
+- Compatibility with Anki standards
+- Manifest.json structure updated
+
+## [1.1.0] - Initial Release
+
+### Added
+- 7 high-readability themes (Sepia Word, Sepia Paper, Sepia Special, Gray Word, Gray Paper, and 2 dark themes)
+- Follow System Theme feature
+- Instant theme updates without restart
+- System dark mode detection
+- About dialog with project information
+- Menu integration in Tools menu
