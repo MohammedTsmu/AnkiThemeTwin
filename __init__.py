@@ -1,20 +1,27 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.2.0
-# 10 high-readability themes + follow-system mode + instant updates + configurable font size
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.4.0
+# Enhanced theming with keyboard shortcuts, more font sizes, theme presets, and custom theme creator
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
 from aqt import mw, gui_hooks
 from aqt.qt import (
     QAction, QActionGroup, QApplication, QMenu,
-    QDialog, QVBoxLayout, QLabel, QPushButton, Qt,
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, Qt,
+    QSlider, QColorDialog, QLineEdit, QSpinBox, QScrollArea,
+    QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
+    QShortcut, QKeySequence,
 )
-from aqt.utils import openLink
-from typing import Literal, Any
+from aqt.utils import openLink, showInfo, tooltip
+from typing import Literal, Any, Optional
+import json
+import os
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
-    "sepia_special", "blue_light", "olive_green"
+    "sepia_special", "blue_light", "olive_green",
+    "high_contrast_light", "high_contrast_dark", "dyslexia_friendly",
+    "deuteranopia", "protanopia", "tritanopia"
 ]
 
 THEME_OPTIONS = [
@@ -25,6 +32,15 @@ THEME_OPTIONS = [
     ("Gray (Paper)", "gray_paper"),
     ("Blue Light (Evening)", "blue_light"),
     ("Olive Green (Natural)", "olive_green"),
+]
+
+ACCESSIBILITY_THEMES = [
+    ("High Contrast Light", "high_contrast_light"),
+    ("High Contrast Dark", "high_contrast_dark"),
+    ("Dyslexia Friendly", "dyslexia_friendly"),
+    ("Deuteranopia Support", "deuteranopia"),
+    ("Protanopia Support", "protanopia"),
+    ("Tritanopia Support", "tritanopia"),
 ]
 
 def get_config():
@@ -56,6 +72,28 @@ OLIVE_GREEN = {"bg":"#EBF0E4","fg":"#2A2F24","muted":"#4F5449","border":"#D0D9C5
     "accent":"#5A7A3C","button":"#E2EAD8","buttonText":"#2A2F24",
     "input":"#F5F8F0","inputText":"#2A2F24","hover":"#DDE7D0","selection":"#D0DFBC"}
 
+# Accessibility themes
+HIGH_CONTRAST_LIGHT = {"bg":"#FFFFFF","fg":"#000000","muted":"#404040","border":"#000000",
+    "accent":"#0000FF","button":"#F0F0F0","buttonText":"#000000",
+    "input":"#FFFFFF","inputText":"#000000","hover":"#E0E0E0","selection":"#FFFF00"}
+HIGH_CONTRAST_DARK = {"bg":"#000000","fg":"#FFFFFF","muted":"#C0C0C0","border":"#FFFFFF",
+    "accent":"#FFFF00","button":"#1A1A1A","buttonText":"#FFFFFF",
+    "input":"#000000","inputText":"#FFFFFF","hover":"#2A2A2A","selection":"#FFFF00"}
+DYSLEXIA_FRIENDLY = {"bg":"#FFFACD","fg":"#2F2F2F","muted":"#696969","border":"#E6DB8F",
+    "accent":"#008B8B","button":"#FFF8B0","buttonText":"#2F2F2F",
+    "input":"#FFFFF0","inputText":"#2F2F2F","hover":"#FFF48F","selection":"#FFE680"}
+
+# Color blindness support themes
+DEUTERANOPIA = {"bg":"#F0F0E8","fg":"#003366","muted":"#666699","border":"#9999CC",
+    "accent":"#CC6600","button":"#E8E8E0","buttonText":"#003366",
+    "input":"#FAFAF5","inputText":"#003366","hover":"#E0E0D8","selection":"#CCCCBB"}
+PROTANOPIA = {"bg":"#EFF5FF","fg":"#004080","muted":"#5577AA","border":"#99BBDD",
+    "accent":"#CC7700","button":"#E7EDF5","buttonText":"#004080",
+    "input":"#F7FBFF","inputText":"#004080","hover":"#DFE9F5","selection":"#CCDDF"}
+TRITANOPIA = {"bg":"#FFF0F0","fg":"#330022","muted":"#775566","border":"#CCAACC",
+    "accent":"#CC3366","button":"#FFE8E8","buttonText":"#330022",
+    "input":"#FFF8F8","inputText":"#330022","hover":"#FFE0E0","selection":"#FFCCDD"}
+
 PALETTES = {
     "sepia_word": SEPIA_WORD,
     "sepia_paper": SEPIA_PAPER,
@@ -64,6 +102,12 @@ PALETTES = {
     "sepia_special": SEPIA_SPECIAL,
     "blue_light": BLUE_LIGHT,
     "olive_green": OLIVE_GREEN,
+    "high_contrast_light": HIGH_CONTRAST_LIGHT,
+    "high_contrast_dark": HIGH_CONTRAST_DARK,
+    "dyslexia_friendly": DYSLEXIA_FRIENDLY,
+    "deuteranopia": DEUTERANOPIA,
+    "protanopia": PROTANOPIA,
+    "tritanopia": TRITANOPIA,
 }
 
 def palette_for(theme: Theme) -> dict:
@@ -88,15 +132,34 @@ def get_font_size() -> int:
     cfg = get_config()
     return cfg.get("fontSize", 16)
 
+def get_font_family() -> str:
+    """Get configured font family."""
+    cfg = get_config()
+    return cfg.get("fontFamily", "Segoe UI,Amiri,Arial,sans-serif")
+
+def get_line_height() -> float:
+    """Get configured line height, default 1.58."""
+    cfg = get_config()
+    return cfg.get("lineHeight", 1.58)
+
+def get_letter_spacing() -> float:
+    """Get configured letter spacing, default 0."""
+    cfg = get_config()
+    return cfg.get("letterSpacing", 0.0)
+
 def css_vars(p):
     """Generate comprehensive CSS for all webview contexts."""
     font_size = get_font_size()
+    font_family = get_font_family()
+    line_height = get_line_height()
+    letter_spacing = get_letter_spacing()
     return (
         # Base styles
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        '  font-family:"Segoe UI","Amiri","Arial",sans-serif !important;'
-        f"  line-height:1.58; font-size:{font_size}px;"
+        f'  font-family:{font_family} !important;'
+        f"  line-height:{line_height}; font-size:{font_size}px;"
+        f"  letter-spacing:{letter_spacing}px;"
         "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
         "}"
         # All text elements
@@ -667,6 +730,109 @@ def apply_theme_everywhere(theme: Theme):
     apply_qt_styles(theme)
     refresh_all_webviews()
 
+# ---------------- Theme Presets ----------------
+def get_presets() -> list:
+    """Get saved theme presets."""
+    cfg = get_config()
+    return cfg.get("presets", [])
+
+def save_preset(name: str):
+    """Save current theme and settings as a preset."""
+    cfg = get_config()
+    preset = {
+        "name": name,
+        "theme": cfg.get("currentTheme", "sepia_special"),
+        "fontSize": cfg.get("fontSize", 16),
+        "fontFamily": cfg.get("fontFamily", "Segoe UI,Amiri,Arial,sans-serif"),
+        "lineHeight": cfg.get("lineHeight", 1.58),
+        "letterSpacing": cfg.get("letterSpacing", 0.0),
+    }
+    presets = get_presets()
+    # Remove existing preset with same name
+    presets = [p for p in presets if p.get("name") != name]
+    presets.append(preset)
+    cfg["presets"] = presets
+    write_config(cfg)
+    tooltip(f"Preset '{name}' saved!")
+
+def load_preset(preset: dict):
+    """Load a theme preset."""
+    cfg = get_config()
+    cfg["currentTheme"] = preset.get("theme", "sepia_special")
+    cfg["fontSize"] = preset.get("fontSize", 16)
+    cfg["fontFamily"] = preset.get("fontFamily", "Segoe UI,Amiri,Arial,sans-serif")
+    cfg["lineHeight"] = preset.get("lineHeight", 1.58)
+    cfg["letterSpacing"] = preset.get("letterSpacing", 0.0)
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+    tooltip(f"Preset '{preset.get('name')}' loaded!")
+
+def delete_preset(name: str):
+    """Delete a preset."""
+    cfg = get_config()
+    presets = [p for p in get_presets() if p.get("name") != name]
+    cfg["presets"] = presets
+    write_config(cfg)
+    tooltip(f"Preset '{name}' deleted!")
+
+# ---------------- Custom Themes ----------------
+def get_custom_themes() -> dict:
+    """Get user-created custom themes."""
+    cfg = get_config()
+    return cfg.get("customThemes", {})
+
+def save_custom_theme(name: str, palette: dict):
+    """Save a custom theme."""
+    cfg = get_config()
+    custom_themes = get_custom_themes()
+    custom_themes[name] = palette
+    cfg["customThemes"] = custom_themes
+    write_config(cfg)
+    # Add to PALETTES dynamically
+    PALETTES[name] = palette
+    tooltip(f"Custom theme '{name}' saved!")
+
+def delete_custom_theme(name: str):
+    """Delete a custom theme."""
+    cfg = get_config()
+    custom_themes = get_custom_themes()
+    if name in custom_themes:
+        del custom_themes[name]
+        cfg["customThemes"] = custom_themes
+        write_config(cfg)
+        if name in PALETTES:
+            del PALETTES[name]
+        tooltip(f"Custom theme '{name}' deleted!")
+
+def export_theme(theme_name: str, file_path: str):
+    """Export a theme to JSON file."""
+    if theme_name in PALETTES:
+        theme_data = {
+            "name": theme_name,
+            "palette": PALETTES[theme_name],
+            "version": VERSION,
+        }
+        with open(file_path, 'w') as f:
+            json.dump(theme_data, f, indent=2)
+        tooltip(f"Theme exported to {file_path}")
+    else:
+        showInfo(f"Theme '{theme_name}' not found!")
+
+def import_theme(file_path: str):
+    """Import a theme from JSON file."""
+    try:
+        with open(file_path, 'r') as f:
+            theme_data = json.load(f)
+        name = theme_data.get("name", "imported_theme")
+        palette = theme_data.get("palette")
+        if palette:
+            save_custom_theme(name, palette)
+            tooltip(f"Theme '{name}' imported successfully!")
+        else:
+            showInfo("Invalid theme file!")
+    except Exception as e:
+        showInfo(f"Error importing theme: {e}")
+
 # ---------------- About Dialog ----------------
 def show_about_dialog():
     dlg = QDialog(mw)
@@ -675,8 +841,15 @@ def show_about_dialog():
     lbl = QLabel(
         '<div style="font-size:14px;">'
         f'<b>AnkiThemeTwin</b> v{VERSION}<br>'
-        '7 eye-comfort light themes with high readability.<br>'
-        'Configurable font sizes and comprehensive styling.<br><br>'
+        '13+ themes including accessibility themes.<br>'
+        'Custom theme creator, presets, keyboard shortcuts.<br>'
+        'Configurable fonts, sizes, and comprehensive styling.<br><br>'
+        '<b>Features:</b><br>'
+        '• 7 eye-comfort themes + 6 accessibility themes<br>'
+        '• Custom theme creator with color picker<br>'
+        '• Theme presets and import/export<br>'
+        '• Keyboard shortcuts (Ctrl+Shift+1-7)<br>'
+        '• Advanced font customization<br><br>'
         'Author: <b>Dr. Mohammed</b><br>'
         '<a href="https://github.com/MohammedTsmu/AnkiThemeTwin">'
         'GitHub: MohammedTsmu/AnkiThemeTwin</a>'
@@ -691,7 +864,253 @@ def show_about_dialog():
     closeBtn.clicked.connect(dlg.accept)
     layout.addWidget(closeBtn)
     dlg.setLayout(layout)
-    dlg.resize(520, 280)
+    dlg.resize(600, 400)
+    dlg.exec()
+
+# ---------------- Custom Theme Creator Dialog ----------------
+def show_custom_theme_creator():
+    """Show dialog to create custom themes."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Custom Theme Creator")
+    dlg.resize(700, 600)
+    layout = QVBoxLayout(dlg)
+
+    # Theme name
+    name_layout = QHBoxLayout()
+    name_layout.addWidget(QLabel("Theme Name:"))
+    name_input = QLineEdit()
+    name_input.setPlaceholderText("my_custom_theme")
+    name_layout.addWidget(name_input)
+    layout.addLayout(name_layout)
+
+    # Scroll area for color pickers
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    scroll_layout = QGridLayout(scroll_widget)
+
+    color_inputs = {}
+    color_keys = ["bg", "fg", "muted", "border", "accent", "button",
+                  "buttonText", "input", "inputText", "hover", "selection"]
+    color_labels = {
+        "bg": "Background", "fg": "Foreground/Text", "muted": "Muted Text",
+        "border": "Borders", "accent": "Accent Color", "button": "Button Background",
+        "buttonText": "Button Text", "input": "Input Background", "inputText": "Input Text",
+        "hover": "Hover State", "selection": "Selection"
+    }
+
+    row = 0
+    for key in color_keys:
+        label = QLabel(f"{color_labels.get(key, key)}:")
+        color_input = QLineEdit("#FFFFFF")
+        color_btn = QPushButton("Pick")
+
+        def make_picker(inp=color_input):
+            def pick_color():
+                color = QColorDialog.getColor()
+                if color.isValid():
+                    inp.setText(color.name())
+            return pick_color
+
+        color_btn.clicked.connect(make_picker())
+        color_inputs[key] = color_input
+
+        scroll_layout.addWidget(label, row, 0)
+        scroll_layout.addWidget(color_input, row, 1)
+        scroll_layout.addWidget(color_btn, row, 2)
+        row += 1
+
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
+
+    # Buttons
+    btn_layout = QHBoxLayout()
+
+    def save_theme():
+        name = name_input.text().strip()
+        if not name:
+            showInfo("Please enter a theme name!")
+            return
+        palette = {key: inp.text() for key, inp in color_inputs.items()}
+        save_custom_theme(name, palette)
+        dlg.accept()
+
+    save_btn = QPushButton("Save Theme")
+    save_btn.clicked.connect(save_theme)
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+
+    btn_layout.addWidget(save_btn)
+    btn_layout.addWidget(cancel_btn)
+    layout.addLayout(btn_layout)
+
+    dlg.exec()
+
+# ---------------- Presets Manager Dialog ----------------
+def show_presets_manager():
+    """Show dialog to manage theme presets."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Theme Presets Manager")
+    dlg.resize(600, 400)
+    layout = QVBoxLayout(dlg)
+
+    # Current settings info
+    cfg = get_config()
+    info = QLabel(
+        f"Current: {cfg.get('currentTheme', 'sepia_special')} | "
+        f"Font: {cfg.get('fontSize', 16)}px"
+    )
+    layout.addWidget(info)
+
+    # Presets list
+    presets_list = QTextEdit()
+    presets_list.setReadOnly(True)
+
+    def refresh_list():
+        presets = get_presets()
+        if not presets:
+            presets_list.setPlainText("No presets saved yet.")
+        else:
+            text = ""
+            for preset in presets:
+                text += f"• {preset.get('name')}: {preset.get('theme')} | {preset.get('fontSize')}px\n"
+            presets_list.setPlainText(text)
+
+    refresh_list()
+    layout.addWidget(presets_list)
+
+    # Save current as preset
+    save_layout = QHBoxLayout()
+    save_layout.addWidget(QLabel("Save current as:"))
+    preset_name = QLineEdit()
+    preset_name.setPlaceholderText("My Preset")
+    save_layout.addWidget(preset_name)
+
+    def save_current():
+        name = preset_name.text().strip()
+        if name:
+            save_preset(name)
+            refresh_list()
+            preset_name.clear()
+
+    save_btn = QPushButton("Save")
+    save_btn.clicked.connect(save_current)
+    save_layout.addWidget(save_btn)
+    layout.addLayout(save_layout)
+
+    # Load/Delete preset
+    action_layout = QHBoxLayout()
+    action_layout.addWidget(QLabel("Preset name:"))
+    action_name = QLineEdit()
+    action_layout.addWidget(action_name)
+
+    def load_preset_by_name():
+        name = action_name.text().strip()
+        presets = get_presets()
+        preset = next((p for p in presets if p.get("name") == name), None)
+        if preset:
+            load_preset(preset)
+            dlg.accept()
+        else:
+            showInfo(f"Preset '{name}' not found!")
+
+    def delete_preset_by_name():
+        name = action_name.text().strip()
+        if name:
+            delete_preset(name)
+            refresh_list()
+            action_name.clear()
+
+    load_btn = QPushButton("Load")
+    load_btn.clicked.connect(load_preset_by_name)
+    delete_btn = QPushButton("Delete")
+    delete_btn.clicked.connect(delete_preset_by_name)
+    action_layout.addWidget(load_btn)
+    action_layout.addWidget(delete_btn)
+    layout.addLayout(action_layout)
+
+    # Close button
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.accept)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ---------------- Advanced Settings Dialog ----------------
+def show_advanced_settings():
+    """Show advanced font and typography settings."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Advanced Settings")
+    dlg.resize(500, 400)
+    layout = QVBoxLayout(dlg)
+
+    cfg = get_config()
+
+    # Font family
+    font_layout = QHBoxLayout()
+    font_layout.addWidget(QLabel("Font Family:"))
+    font_input = QLineEdit(cfg.get("fontFamily", "Segoe UI,Amiri,Arial,sans-serif"))
+    font_layout.addWidget(font_input)
+    layout.addLayout(font_layout)
+
+    # Font size slider
+    size_layout = QVBoxLayout()
+    size_layout.addWidget(QLabel(f"Font Size: {cfg.get('fontSize', 16)}px"))
+    size_slider = QSlider(Qt.Orientation.Horizontal)
+    size_slider.setMinimum(8)
+    size_slider.setMaximum(32)
+    size_slider.setValue(cfg.get("fontSize", 16))
+    size_label = QLabel(f"{cfg.get('fontSize', 16)}px")
+
+    def update_size_label(val):
+        size_label.setText(f"{val}px")
+
+    size_slider.valueChanged.connect(update_size_label)
+    size_layout.addWidget(size_slider)
+    size_layout.addWidget(size_label)
+    layout.addLayout(size_layout)
+
+    # Line height
+    lh_layout = QHBoxLayout()
+    lh_layout.addWidget(QLabel("Line Height:"))
+    lh_spin = QSpinBox()
+    lh_spin.setMinimum(100)
+    lh_spin.setMaximum(300)
+    lh_spin.setValue(int(cfg.get("lineHeight", 1.58) * 100))
+    lh_spin.setSuffix("%")
+    lh_layout.addWidget(lh_spin)
+    layout.addLayout(lh_layout)
+
+    # Letter spacing
+    ls_layout = QHBoxLayout()
+    ls_layout.addWidget(QLabel("Letter Spacing:"))
+    ls_spin = QSpinBox()
+    ls_spin.setMinimum(-5)
+    ls_spin.setMaximum(10)
+    ls_spin.setValue(int(cfg.get("letterSpacing", 0.0)))
+    ls_spin.setSuffix("px")
+    ls_layout.addWidget(ls_spin)
+    layout.addLayout(ls_layout)
+
+    # Save button
+    def save_settings():
+        cfg["fontFamily"] = font_input.text()
+        cfg["fontSize"] = size_slider.value()
+        cfg["lineHeight"] = lh_spin.value() / 100.0
+        cfg["letterSpacing"] = float(ls_spin.value())
+        write_config(cfg)
+        apply_theme_everywhere(get_active_theme())
+        tooltip("Settings saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save & Apply")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
     dlg.exec()
 
 # ---------------- Menu ----------------
@@ -725,16 +1144,29 @@ def add_menu():
 
     m.addSeparator()
 
+    # ---- Accessibility Themes submenu ----
+    accessibility_menu = QMenu("Accessibility Themes", m)
+    for label, key in ACCESSIBILITY_THEMES:
+        act = QAction(label, mw)
+        act.triggered.connect(lambda _, k=key: set_theme(k))
+        accessibility_menu.addAction(act)
+    m.addMenu(accessibility_menu)
+
+    m.addSeparator()
+
     # ---- Font Size submenu ----
     font_menu = QMenu("Font Size", m)
     font_group = QActionGroup(font_menu)
     font_group.setExclusive(True)
     current_size = get_font_size()
     font_sizes = [
+        ("Very Small (12px)", 12),
         ("Small (14px)", 14),
         ("Medium (16px)", 16),
         ("Large (18px)", 18),
         ("Extra Large (20px)", 20),
+        ("Huge (22px)", 22),
+        ("Massive (24px)", 24),
     ]
     for label, size in font_sizes:
         act = QAction(label, font_menu, checkable=True)
@@ -743,6 +1175,21 @@ def add_menu():
         font_group.addAction(act)
         font_menu.addAction(act)
     m.addMenu(font_menu)
+
+    m.addSeparator()
+
+    # ---- Advanced Features ----
+    actAdvanced = QAction("Advanced Settings...", mw)
+    actAdvanced.triggered.connect(show_advanced_settings)
+    m.addAction(actAdvanced)
+
+    actCustomTheme = QAction("Create Custom Theme...", mw)
+    actCustomTheme.triggered.connect(show_custom_theme_creator)
+    m.addAction(actCustomTheme)
+
+    actPresets = QAction("Manage Presets...", mw)
+    actPresets.triggered.connect(show_presets_manager)
+    m.addAction(actPresets)
 
     m.addSeparator()
 
@@ -760,9 +1207,40 @@ def add_menu():
     actAboutHelp.triggered.connect(show_about_dialog)
     help_menu.addAction(actAboutHelp)
 
+def setup_keyboard_shortcuts():
+    """Setup keyboard shortcuts for quick theme switching."""
+    # Ctrl+Shift+1 through Ctrl+Shift+7 for the main themes
+    theme_keys = [key for _, key in THEME_OPTIONS]
+    for i, theme_key in enumerate(theme_keys[:7], 1):
+        shortcut = QShortcut(QKeySequence(f"Ctrl+Shift+{i}"), mw)
+        shortcut.activated.connect(lambda k=theme_key: (set_theme(k), tooltip(f"Switched to {k}")))
+
+    # Ctrl+Shift+= for increasing font size
+    increase_font = QShortcut(QKeySequence("Ctrl+Shift+="), mw)
+    def increase_size():
+        current = get_font_size()
+        new_size = min(current + 2, 32)
+        set_font_size(new_size)
+        tooltip(f"Font size: {new_size}px")
+    increase_font.activated.connect(increase_size)
+
+    # Ctrl+Shift+- for decreasing font size
+    decrease_font = QShortcut(QKeySequence("Ctrl+Shift+-"), mw)
+    def decrease_size():
+        current = get_font_size()
+        new_size = max(current - 2, 8)
+        set_font_size(new_size)
+        tooltip(f"Font size: {new_size}px")
+    decrease_font.activated.connect(decrease_size)
+
 def on_profile_open():
     if not getattr(mw, "_ankitwin_menu", False):
         add_menu()
+        setup_keyboard_shortcuts()
+        # Load custom themes from config
+        custom_themes = get_custom_themes()
+        for name, palette in custom_themes.items():
+            PALETTES[name] = palette
         mw._ankitwin_menu = True
     apply_theme_everywhere(get_active_theme())
 
