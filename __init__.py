@@ -56,9 +56,9 @@ SEPIA_SPECIAL = {"bg":"#EEDFC6","fg":"#201A16","muted":"#54483F","border":"#CDB9
 DARK_WARM_SOFT = {"bg":"#3D3530","fg":"#F5F1EA","muted":"#B8AEA3","border":"#7A6D60",
     "accent":"#FDB863","button":"#4A4038","buttonText":"#F5F1EA",
     "input":"#322D29","inputText":"#F5F1EA","hover":"#524940","selection":"#6B5E52"}
-DARK_NEUTRAL_SOFT = {"bg":"#2B2B2B","fg":"#E8E8E8","muted":"#9E9E9E","border":"#4A4A4A",
-    "accent":"#5B9EFF","button":"#3A3A3A","buttonText":"#E8E8E8",
-    "input":"#242424","inputText":"#E8E8E8","hover":"#3F3F3F","selection":"#4F4F4F"}
+DARK_NEUTRAL_SOFT = {"bg":"#323232","fg":"#E8E8E8","muted":"#9E9E9E","border":"#4A4A4A",
+    "accent":"#5B9EFF","button":"#3E3E3E","buttonText":"#E8E8E8",
+    "input":"#2A2A2A","inputText":"#E8E8E8","hover":"#454545","selection":"#555555"}
 BLUE_LIGHT = {"bg":"#E8F0F8","fg":"#1A2330","muted":"#4A5568","border":"#C5D5E5",
     "accent":"#2C5AA0","button":"#DDE8F5","buttonText":"#1A2330",
     "input":"#F5F8FC","inputText":"#1A2330","hover":"#D5E3F2","selection":"#C0D8ED"}
@@ -155,6 +155,16 @@ def css_vars(p):
         f"  border-color:{p['accent']} !important; outline:none;"
         f"  box-shadow:0 0 0 2px {p['accent']}33;"
         "}"
+        # Contenteditable divs (Anki editor fields)
+        f"[contenteditable='true'], [contenteditable='plaintext-only'] {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border:1px solid {p['border']} !important; border-radius:3px;"
+        f"  padding:8px !important; min-height:60px !important;"
+        "}"
+        f"[contenteditable='true']:focus, [contenteditable='plaintext-only']:focus {{"
+        f"  border-color:{p['accent']} !important; outline:none !important;"
+        f"  box-shadow:0 0 0 2px {p['accent']}33 !important;"
+        "}"
         # Checkboxes and radio buttons
         f"input[type='checkbox'], input[type='radio'] {{"
         f"  border:2px solid {p['border']} !important; background:{p['input']} !important;"
@@ -193,6 +203,27 @@ def css_vars(p):
         f"::-webkit-scrollbar-track {{ background:{p['bg']}; }}"
         f"::-webkit-scrollbar-thumb {{ background:{p['border']}; border-radius:6px; }}"
         f"::-webkit-scrollbar-thumb:hover {{ background:{p['muted']}; }}"
+        # Dropdown menus and autocomplete
+        f".autocomplete, .dropdown-menu {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border:1px solid {p['border']} !important; box-shadow:0 2px 8px rgba(0,0,0,0.2);"
+        "}"
+        f".autocomplete-item, .dropdown-item {{"
+        f"  color:{p['fg']} !important; padding:6px 12px;"
+        "}"
+        f".autocomplete-item:hover, .dropdown-item:hover {{"
+        f"  background:{p['hover']} !important; color:{p['fg']} !important;"
+        "}"
+        f".autocomplete-item.selected, .dropdown-item.selected {{"
+        f"  background:{p['selection']} !important; color:{p['fg']} !important;"
+        "}"
+        # Modal dialogs and overlays
+        f".modal, .overlay {{"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        f"  border:1px solid {p['border']} !important;"
+        "}"
+        f".modal-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border-bottom:1px solid {p['border']} !important; }}"
+        f".modal-footer {{ background:{p['button']} !important; border-top:1px solid {p['border']} !important; }}"
     )
 
 def inject_css(web_content, ctx):
@@ -239,11 +270,26 @@ def inject_css(web_content, ctx):
         context_css += f"""
         /* Editor specific */
         .fname {{ color:{p['muted']} !important; font-size:12px; }}
-        .field {{ min-height:60px !important; }}
-        .EditorField {{ background:{p['input']} !important; }}
+        .field {{ min-height:60px !important; background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .EditorField {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
         .fieldButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
-        .tag {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .tag {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; padding:2px 6px; border-radius:3px; }}
         .tagAdd {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        /* Note type and deck selectors */
+        #notetype {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        #deck {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* Editor toolbar */
+        .topbut, .linkb {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .topbut:hover, .linkb:hover {{ background:{p['hover']} !important; }}
+        /* Dupes area */
+        #dupes {{ background:{p['input']} !important; color:{p['muted']} !important; border:1px solid {p['border']} !important; padding:4px; }}
+        .dupes {{ color:{p['accent']} !important; }}
+        /* Placeholder text in fields */
+        .field:empty:before {{ color:{p['muted']} !important; }}
+        /* Rich text controls */
+        .richTextButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .richTextButton:hover {{ background:{p['hover']} !important; }}
+        .richTextButton.highlighted {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
         """
 
     # Overview - deck overview
@@ -262,6 +308,22 @@ def inject_css(web_content, ctx):
         .cell {{ color:{p['fg']} !important; }}
         .browserRow {{ background:{p['bg']} !important; }}
         .browserRow:hover {{ background:{p['hover']} !important; }}
+        /* Browser sidebar */
+        .sidebar {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .sidebar-item {{ color:{p['fg']} !important; padding:4px 8px; }}
+        .sidebar-item:hover {{ background:{p['hover']} !important; }}
+        .sidebar-item.selected {{ background:{p['selection']} !important; }}
+        /* Browser toolbar */
+        #searchEdit {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* Card preview in browser */
+        #previewArea {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Suspended and marked cards */
+        .suspended {{ color:{p['muted']} !important; opacity:0.7; }}
+        .marked {{ color:{p['accent']} !important; }}
+        /* Column headers */
+        th.browser-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        /* Filter bar */
+        .filterBar {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; padding:8px; }}
         """
 
     # Toolbar and bottom bars
