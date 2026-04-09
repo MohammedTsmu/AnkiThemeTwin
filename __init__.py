@@ -414,8 +414,13 @@ def inject_css(web_content, ctx):
         .sidebar-item {{ color:{p['fg']} !important; padding:4px 8px; }}
         .sidebar-item:hover {{ background:{p['hover']} !important; }}
         .sidebar-item.selected {{ background:{p['selection']} !important; }}
+        /* Sidebar deck list items */
+        .deck-node {{ color:{p['fg']} !important; }}
+        .deck-node:hover {{ background:{p['hover']} !important; }}
         /* Browser toolbar */
         #searchEdit {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* All input fields in browser */
+        input[type="text"], input[type="search"] {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         /* Card preview in browser */
         #previewArea {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
         /* Suspended and marked cards */
@@ -425,6 +430,8 @@ def inject_css(web_content, ctx):
         th.browser-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
         /* Filter bar */
         .filterBar {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; padding:8px; }}
+        /* Filter inputs */
+        .filterBar input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         """
 
     # Toolbar and bottom bars
@@ -432,6 +439,85 @@ def inject_css(web_content, ctx):
         context_css += f"""
         /* Toolbar/BottomBar specific */
         .bottom {{ background:{p['bg']} !important; border-top:1px solid {p['border']} !important; }}
+        """
+
+    # AddCards - add new cards dialog
+    elif "AddCards" in ctx_name:
+        context_css += f"""
+        /* AddCards specific */
+        .fname {{ color:{p['muted']} !important; font-size:12px; }}
+        .field {{ min-height:60px !important; background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .EditorField {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        /* Note type and deck selectors in add cards */
+        #notetype, #deck {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        select, option {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        /* Tags input */
+        .tagAdd, #tags {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* All form inputs */
+        input[type="text"], input[type="search"] {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        """
+
+    # Statistics - statistics window
+    elif "Stats" in ctx_name or "Statistics" in ctx_name:
+        context_css += f"""
+        /* Statistics specific */
+        .graph {{ background:{p['bg']} !important; }}
+        .graph-label {{ color:{p['fg']} !important; }}
+        /* Stats table */
+        table.stats {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        table.stats td {{ color:{p['fg']} !important; border:1px solid {p['border']} !important; }}
+        table.stats th {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}
+        /* Stats controls */
+        .range-box {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        select.range {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        """
+
+    # DeckOptions/DeckConf - deck settings and options
+    elif "DeckOptions" in ctx_name or "DeckConf" in ctx_name or "DeckConfig" in ctx_name:
+        context_css += f"""
+        /* Deck Options specific */
+        /* All input fields in deck options */
+        input[type="number"], input[type="text"] {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* Checkboxes and labels */
+        label {{ color:{p['fg']} !important; }}
+        /* Option groups */
+        .option-group {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Spinboxes */
+        .spin-box {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        /* Select dropdowns */
+        select {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        """
+
+    # Preferences - preferences dialog
+    elif "Preferences" in ctx_name or "Prefs" in ctx_name:
+        context_css += f"""
+        /* Preferences specific */
+        input[type="text"], input[type="number"], input[type="password"] {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        select {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        textarea {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        label {{ color:{p['fg']} !important; }}
+        """
+
+    # Default fallback for any other context
+    else:
+        context_css += f"""
+        /* Default context styling - comprehensive fallback */
+        /* Ensure all inputs are styled */
+        input:not([type="button"]):not([type="submit"]):not([type="reset"]) {{
+            background:{p['input']} !important;
+            color:{p['inputText']} !important;
+            border:1px solid {p['border']} !important;
+        }}
+        select, textarea {{
+            background:{p['input']} !important;
+            color:{p['inputText']} !important;
+            border:1px solid {p['border']} !important;
+        }}
+        /* Labels and text */
+        label, span, div {{ color:{p['fg']} !important; }}
+        /* Tables in dialogs */
+        table {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        td {{ color:{p['fg']} !important; }}
         """
 
     # Combine all CSS
