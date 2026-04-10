@@ -982,9 +982,6 @@ def inject_css(web_content, ctx):
            We do NOT force color on generic elements (p, span, div, li)
            because user card templates control their own formatting. */
         #qa {{ background: var(--canvas, {p['bg']}); }}
-        .nightMode .card, .night_mode .card {{ background: var(--canvas, {p['bg']}) !important; color: var(--fg, {p['fg']}) !important; }}
-        .nightMode #qa, .night_mode #qa {{ background: var(--canvas, {p['bg']}) !important; }}
-        .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']}; border:1px solid {p['border']}; }}
         .replay-button {{ background:{p['button']}; border:1px solid {p['border']}; }}
         .typeGood {{ color:{p['accent']}; }}
         .typeBad {{ color:#E74C3C; }}
