@@ -2,6 +2,117 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.6.0] - 2026-04-10
+
+### Added - 15 New Features
+
+#### Feature 1: Pomodoro / Break Reminder
+- Configurable study timer with break reminders
+- Adjustable study duration (5–120 min) and break duration (1–30 min)
+- Auto-restart option after breaks
+- Dialog with start/stop controls
+- Menu: ⏱️ Pomodoro Timer...
+
+#### Feature 2: Blue Light Filter
+- Adjustable warm tint overlay (0–100% intensity)
+- Uses CSS overlay with `mix-blend-mode:multiply` for eye comfort
+- Slider-based control dialog
+- Quick access via right-click context menu
+- Menu: 🔆 Blue Light Filter...
+
+#### Feature 3: Theme Sync via AnkiWeb
+- Sync settings across devices using Anki's media sync
+- Stores config in `collection.media/_ankithemetwin_sync.json`
+- Push/Pull controls for manual sync
+- Auto-imports on profile open if newer sync file found
+- Menu: 🔄 Theme Sync...
+
+#### Feature 4: Note-Type Specific Styling
+- Set per-note-type font size, font family, and theme overrides
+- Automatically applies when reviewing cards of that note type
+- Hooks into `reviewer_did_show_question` and `reviewer_did_show_answer`
+- Menu: 📝 Note Type Styling...
+
+#### Feature 5: Zen Mode
+- Distraction-free review mode
+- Hides toolbar, deck name, card counts, and stats
+- Centers card content with generous padding
+- Toggle via menu or Ctrl+Shift+Z shortcut
+- Menu: 🧘 Zen Mode (Distraction-Free)
+
+#### Feature 6: Theme Rotation
+- Auto-rotate through selected themes
+- Card-based interval (every N cards reviewed)
+- Time-based interval (every N minutes)
+- Select which themes to include in rotation
+- Menu: 🔄 Theme Rotation...
+
+#### Feature 7: Custom CSS Injection
+- Textarea for user CSS that's injected after theme styles
+- Supports `--att-*` CSS custom properties from current theme
+- Syntax hints and variable reference in dialog
+- Menu: 🎨 Custom CSS...
+
+#### Feature 8: Theme-Aware Card Template Helper
+- Exposes `--att-*` CSS custom properties for card templates
+- Variables: `--att-bg`, `--att-fg`, `--att-accent`, `--att-border`, `--att-button`, `--att-input`, `--att-hover`, `--att-selection`, `--att-font-size`, `--att-font-family`, `--att-line-height`, `--att-letter-spacing`
+- Allows card templates to adapt to the user's chosen theme
+- Documented in About dialog
+
+#### Feature 9: Ambient Light Auto-Adjust
+- Automatic blue light filter based on time of day
+- Cosine interpolation: strongest at midnight, lightest at noon
+- Configurable min/max filter range
+- Updates every 10 minutes automatically
+- Menu: 🌅 Ambient Light Auto-Adjust...
+
+#### Feature 10: Right-Click Context Menu
+- Quick theme switching from any webview right-click menu
+- Shows top 5 themes and favorite themes
+- Quick toggles for Zen Mode
+- Font size submenu
+- Blue light filter presets
+- Uses `webview_will_show_context_menu` hook
+
+#### Feature 11: More Transition Animations
+- 4 animation styles: Fade, Slide, Morph (Elastic), Zoom
+- Each uses distinct CSS easing curves
+- New CSS keyframes: slideIn, zoomIn, morphIn
+- Updated Animation Settings dialog with all options
+
+#### Feature 12: Match Card Background
+- Detects card template's background color via JavaScript
+- Adapts page background to match the card
+- Useful for cards with custom backgrounds
+- Toggle via menu checkbox
+- Menu: 🎯 Match Card Background
+
+#### Feature 13: Status Bar Indicator
+- Shows current theme name, font size, and active features
+- Updates when theme changes, font size changes, etc.
+- Shows blue light filter and Zen mode status
+- Persistent QLabel in Anki's status bar
+- Configurable via `statusBarIndicator` setting
+
+#### Feature 14: Community Theme Gallery
+- 8 bundled community themes (Solarized Light, Nord Light, Rosé Pine Dawn, Gruvbox Light, Catppuccin Latte, Tokyo Night Light, Everforest Light, Dracula Light)
+- One-click install or install & apply
+- Import themes from URL (JSON format)
+- Menu: 🌍 Community Theme Gallery...
+
+#### Feature 15: Seasonal Themes
+- Automatic theme switching based on season
+- Spring → Olive Green, Summer → Blue Light, Autumn → Sepia Special, Winter → Gray Word
+- Customizable season-to-theme mapping
+- Menu: 🌿 Seasonal Themes...
+
+### Changed
+- Updated to version 1.6.0
+- Menu reorganized with new sections: Eye Comfort & Filters, Scheduling & Automation, Visual & Animation, Configuration & Sync
+- About dialog updated with all new features
+- Animation Settings dialog updated with 4 animation styles
+- Status bar integration for live theme info
+
 ## [1.5.2] - 2026-04-10
 
 ### Fixed - OS Theme Override on All Windows (Not Just Browser)
