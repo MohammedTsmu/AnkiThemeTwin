@@ -2,6 +2,29 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.5.0] - 2026-04-10
+
+### Fixed - Browser Window Complete Theming
+
+#### Browser Sidebar & Qt Widget Theming
+- **`browser_will_show` hook**: Added targeted QSS styling that applies directly to the Browser window's native Qt widgets (sidebar QTreeView, card table QTableView, filter QLineEdit), overriding Anki's ThemeManager
+- **Enhanced QTreeView styling**: Added item, branch, selected, and hover state QSS rules for the sidebar tree (Saved Searches, Today, Flags, Card State, Decks, Tags sections)
+- **QHeaderView section hover**: Added hover state for column headers in the card table
+
+#### Editor Fields & Shadow DOM Theming
+- **Shadow DOM injection**: Added JavaScript injection to penetrate `<anki-editable>` Shadow DOM elements, styling the actual editable content inside editor fields (Front, Back, PageInfo, Tags)
+- **`editor_did_load_note` hook**: Added hook to re-inject shadow DOM styles whenever a note is loaded in the editor
+- **MutationObserver**: Added automatic re-injection when new fields are dynamically added to the editor
+- **Svelte component overrides**: Added CSS targeting for Svelte-based editor components: field labels, tag editor, toolbar buttons, note-type/deck selectors, collapse icons, plain-text badges, editor-field containers
+
+#### Anki CSS Custom Property Overrides
+- **50+ CSS custom properties**: Override Anki's built-in CSS variables at `:root` level (`--canvas`, `--fg`, `--border`, `--button-bg`, `--frame-bg`, `--window-bg`, `--selected-bg`, `--badge-bg`, `--highlight-bg`, etc.) so Svelte components inherit theme colors
+- **ThemeManager conflict resolution**: Theme colors now override Anki's ThemeManager CSS variables with `!important`, ensuring consistent theming across all rendering layers
+
+#### Live Theme Refresh
+- **Browser window refresh**: Theme switching now re-applies QSS to any open Browser windows and refreshes editor webviews inside them
+- **Shadow DOM refresh**: Theme switching re-injects styles into Shadow DOM elements in open editors
+
 ## [1.4.0] - 2026-04-09
 
 ### Added - Major Feature Release

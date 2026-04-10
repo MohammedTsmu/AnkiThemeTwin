@@ -164,6 +164,55 @@ def css_vars(p):
         transitions = f"transition: all {duration}ms ease-in-out;"
 
     return (
+        # Override Anki's built-in CSS custom properties used by Svelte components
+        # This ensures ThemeManager colors are replaced with our theme colors
+        ":root {"
+        f"  --canvas: {p['bg']} !important;"
+        f"  --canvas-elevated: {p['input']} !important;"
+        f"  --canvas-overlay: {p['bg']} !important;"
+        f"  --canvas-inset: {p['input']} !important;"
+        f"  --canvas-glass: {p['bg']}ee !important;"
+        f"  --canvas-code: {p['input']} !important;"
+        f"  --fg: {p['fg']} !important;"
+        f"  --fg-subtle: {p['muted']} !important;"
+        f"  --fg-disabled: {p['muted']} !important;"
+        f"  --fg-faint: {p['border']} !important;"
+        f"  --fg-link: {p['accent']} !important;"
+        f"  --shadow: rgba(0,0,0,0.1) !important;"
+        f"  --shadow-inset: rgba(0,0,0,0.05) !important;"
+        f"  --shadow-subtle: rgba(0,0,0,0.03) !important;"
+        f"  --shadow-focus: {p['accent']}33 !important;"
+        f"  --border: {p['border']} !important;"
+        f"  --border-subtle: {p['border']} !important;"
+        f"  --border-strong: {p['muted']} !important;"
+        f"  --border-focus: {p['accent']} !important;"
+        f"  --button-bg: {p['button']} !important;"
+        f"  --button-hover: {p['hover']} !important;"
+        f"  --button-active: {p['selection']} !important;"
+        f"  --button-disabled: {p['border']} !important;"
+        f"  --button-gradient-start: {p['button']} !important;"
+        f"  --button-gradient-end: {p['hover']} !important;"
+        f"  --button-primary-bg: {p['accent']} !important;"
+        f"  --button-primary-fg: {p['bg']} !important;"
+        f"  --button-primary-gradient-start: {p['accent']} !important;"
+        f"  --button-primary-gradient-end: {p['accent']} !important;"
+        f"  --button-primary-disabled: {p['muted']} !important;"
+        f"  --scrollbar-bg: transparent !important;"
+        f"  --scrollbar-bg-hover: {p['hover']} !important;"
+        f"  --scrollbar-bg-active: {p['selection']} !important;"
+        f"  --accent-card: {p['accent']} !important;"
+        f"  --accent-note: {p['accent']} !important;"
+        f"  --accent-danger: #E74C3C !important;"
+        f"  --badge-bg: {p['button']} !important;"
+        f"  --badge-fg: {p['buttonText']} !important;"
+        f"  --highlight-bg: {p['selection']} !important;"
+        f"  --highlight-fg: {p['fg']} !important;"
+        f"  --selected-bg: {p['selection']} !important;"
+        f"  --selected-fg: {p['fg']} !important;"
+        f"  --frame-bg: {p['input']} !important;"
+        f"  --window-bg: {p['bg']} !important;"
+        f"  --window-fg: {p['fg']} !important;"
+        "}"
         # Base styles with smooth transitions
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
@@ -391,6 +440,31 @@ def inject_css(web_content, ctx):
         .richTextButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
         .richTextButton:hover {{ background:{p['hover']} !important; }}
         .richTextButton.highlighted {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Svelte NoteEditor component overrides */
+        .editor-toolbar {{ background:{p['bg']} !important; border-bottom:1px solid {p['border']} !important; }}
+        .editor-toolbar button {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .editor-toolbar button:hover {{ background:{p['hover']} !important; }}
+        .editor-toolbar button.active, .editor-toolbar button[class*="active"] {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Field labels (Front, Back, etc.) */
+        .label-name, .field-label, [class*="label"] {{ color:{p['muted']} !important; }}
+        /* Collapsible field headers */
+        .collapse-icon {{ color:{p['muted']} !important; }}
+        .fields-collapse {{ background:{p['bg']} !important; }}
+        /* Tag editor Svelte component */
+        .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
+        .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
+        .tag-editor .tag-container {{ background:{p['bg']} !important; }}
+        .tag-editor .tag-chip, .tag-pill {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; border-radius:3px; }}
+        .tag-editor .tag-chip:hover, .tag-pill:hover {{ background:{p['hover']} !important; }}
+        /* Note type / deck selector buttons in editor */
+        .note-type-selector, .deck-selector {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .note-type-selector:hover, .deck-selector:hover {{ background:{p['hover']} !important; }}
+        /* Plain/rich text toggle and field expansion buttons */
+        .plain-text-badge {{ background:{p['button']} !important; color:{p['muted']} !important; border:1px solid {p['border']} !important; }}
+        .plain-text-badge:hover {{ background:{p['hover']} !important; }}
+        /* Editor field containers */
+        .editor-field {{ background:{p['input']} !important; border:1px solid {p['border']} !important; border-radius:4px; }}
+        .editor-field:focus-within {{ border-color:{p['accent']} !important; box-shadow:0 0 0 3px {p['accent']}33 !important; }}
         """
 
     # Overview - deck overview
@@ -439,6 +513,52 @@ def inject_css(web_content, ctx):
 
     # Inject into page
     web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
+
+    # For Editor contexts, inject JavaScript to style Shadow DOM elements
+    if "Editor" in ctx_name or "AddCards" in ctx_name:
+        shadow_css_content = (
+            f":host {{ background:{p['input']} !important; "
+            f"color:{p['inputText']} !important; "
+            f"font-family:{get_font_family()} !important; "
+            f"font-size:{get_font_size()}px !important; "
+            f"line-height:{get_line_height()} !important; "
+            f"letter-spacing:{get_letter_spacing()}px !important; "
+            f"caret-color:{p['fg']} !important; "
+            f"padding:8px !important; }} "
+            f"* {{ color:{p['inputText']} !important; }} "
+            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
+        )
+        import json as _json
+        shadow_css_json = _json.dumps(shadow_css_content)
+        shadow_js = (
+            "<script>"
+            "(function(){"
+            "  function styleShadowRoots(){"
+            "    document.querySelectorAll('anki-editable').forEach(function(el){"
+            "      if(el.shadowRoot){"
+            "        var sid='ankithemetwin-shadow';"
+            "        var existing=el.shadowRoot.getElementById(sid);"
+            "        if(!existing){"
+            "          var s=document.createElement('style');"
+            "          s.id=sid;"
+            f"          s.textContent={shadow_css_json};"
+            "          el.shadowRoot.appendChild(s);"
+            "        }"
+            "      }"
+            "    });"
+            "  }"
+            "  /* Run after DOM is ready and observe for dynamically added fields */"
+            "  if(document.readyState==='complete'){"
+            "    setTimeout(styleShadowRoots,100);"
+            "  }else{"
+            "    window.addEventListener('load',function(){setTimeout(styleShadowRoots,100);});"
+            "  }"
+            "  var obs=new MutationObserver(function(){setTimeout(styleShadowRoots,50);});"
+            "  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
+            "})();"
+            "</script>"
+        )
+        web_content.head += shadow_js
 
 def qss(p):
     """Generate comprehensive Qt Style Sheets for all Qt widgets."""
@@ -519,8 +639,36 @@ def qss(p):
         selection-background-color:{p['selection']};
         selection-color:{p['fg']};
     }}
+    QTableView::item, QListView::item, QTreeView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
     QTableView::item:hover, QListView::item:hover, QTreeView::item:hover {{
         background:{p['hover']};
+    }}
+    QTableView::item:selected, QListView::item:selected, QTreeView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+    /* QTreeView branch indicators for sidebar tree */
+    QTreeView::branch {{
+        background:{p['bg']};
+    }}
+    QTreeView::branch:hover {{
+        background:{p['hover']};
+    }}
+    QTreeView::branch:selected {{
+        background:{p['selection']};
+    }}
+    QTreeView::branch:has-children:!has-siblings:closed,
+    QTreeView::branch:closed:has-children:has-siblings {{
+        border-image:none;
+        image:none;
+    }}
+    QTreeView::branch:open:has-children:!has-siblings,
+    QTreeView::branch:open:has-children:has-siblings {{
+        border-image:none;
+        image:none;
     }}
     QHeaderView::section {{
         background:{p['button']};
@@ -528,6 +676,9 @@ def qss(p):
         border:1px solid {p['border']};
         padding:6px;
         font-weight:bold;
+    }}
+    QHeaderView::section:hover {{
+        background:{p['hover']};
     }}
 
     /* Menus */
@@ -765,6 +916,252 @@ def apply_qt_styles(theme: Theme):
     if app:
         app.setStyleSheet(qss(palette_for(theme)))
 
+# ---------------- Browser-specific Qt widget theming ----------------
+def on_browser_will_show(browser):
+    """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter)."""
+    theme = get_active_theme()
+    p = palette_for(theme)
+
+    # Build Browser-specific QSS for native Qt widgets
+    browser_qss = f"""
+    /* Browser sidebar (QTreeView) */
+    QTreeView {{
+        background:{p['bg']};
+        color:{p['fg']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+        outline:none;
+    }}
+    QTreeView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
+    QTreeView::item:hover {{
+        background:{p['hover']};
+    }}
+    QTreeView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+    QTreeView::branch {{
+        background:{p['bg']};
+    }}
+    QTreeView::branch:hover {{
+        background:{p['hover']};
+    }}
+    QTreeView::branch:selected {{
+        background:{p['selection']};
+    }}
+
+    /* Sidebar filter input (QLineEdit at top of sidebar) */
+    QLineEdit {{
+        background:{p['input']};
+        color:{p['inputText']};
+        border:1px solid {p['border']};
+        border-radius:3px;
+        padding:4px 8px;
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+    QLineEdit:focus {{
+        border:2px solid {p['accent']};
+    }}
+
+    /* Card list table (QTableView) */
+    QTableView {{
+        background:{p['bg']};
+        color:{p['fg']};
+        alternate-background-color:{p['input']};
+        gridline-color:{p['border']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+    QTableView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
+    QTableView::item:hover {{
+        background:{p['hover']};
+    }}
+    QTableView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+
+    /* Column headers */
+    QHeaderView::section {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        padding:6px;
+        font-weight:bold;
+    }}
+    QHeaderView::section:hover {{
+        background:{p['hover']};
+    }}
+
+    /* Splitter between sidebar and table */
+    QSplitter::handle {{
+        background:{p['border']};
+    }}
+    QSplitter::handle:hover {{
+        background:{p['muted']};
+    }}
+
+    /* Search bar area */
+    QToolBar {{
+        background:{p['bg']};
+        border:1px solid {p['border']};
+    }}
+
+    /* Browser buttons */
+    QPushButton {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        border-radius:4px;
+        padding:6px 12px;
+    }}
+    QPushButton:hover {{
+        background:{p['hover']};
+        border-color:{p['accent']};
+    }}
+
+    /* Combo boxes in browser */
+    QComboBox {{
+        background:{p['input']};
+        color:{p['inputText']};
+        border:1px solid {p['border']};
+        border-radius:3px;
+        padding:4px 8px;
+    }}
+    QComboBox QAbstractItemView {{
+        background:{p['input']};
+        color:{p['inputText']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+        border:1px solid {p['border']};
+    }}
+
+    /* Labels in browser */
+    QLabel {{
+        color:{p['fg']};
+    }}
+
+    /* General background for the Browser window */
+    QWidget {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+
+    /* Scrollbars in browser */
+    QScrollBar:vertical {{
+        background:{p['bg']};
+        width:12px;
+        border:none;
+    }}
+    QScrollBar::handle:vertical {{
+        background:{p['border']};
+        border-radius:6px;
+        min-height:20px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background:{p['muted']};
+    }}
+    QScrollBar:horizontal {{
+        background:{p['bg']};
+        height:12px;
+        border:none;
+    }}
+    QScrollBar::handle:horizontal {{
+        background:{p['border']};
+        border-radius:6px;
+        min-width:20px;
+    }}
+    QScrollBar::handle:horizontal:hover {{
+        background:{p['muted']};
+    }}
+    QScrollBar::add-line, QScrollBar::sub-line {{
+        border:none;
+        background:none;
+    }}
+
+    /* Tab bar in browser (if applicable) */
+    QTabBar::tab {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        padding:6px 12px;
+    }}
+    QTabBar::tab:selected {{
+        background:{p['bg']};
+        border-bottom-color:{p['bg']};
+    }}
+    QTabBar::tab:hover {{
+        background:{p['hover']};
+    }}
+    """
+
+    try:
+        browser.setStyleSheet(browser_qss)
+    except (RuntimeError, AttributeError):
+        pass
+
+# ---------------- Shadow DOM refresh for editor ----------------
+def _build_shadow_dom_js(theme: Theme) -> str:
+    """Build JavaScript to inject styles into Shadow DOM elements (anki-editable)."""
+    p = palette_for(theme)
+    font_family = get_font_family()
+    font_size = get_font_size()
+    line_height = get_line_height()
+    letter_spacing = get_letter_spacing()
+
+    shadow_css = (
+        f"background:{p['input']} !important;"
+        f"color:{p['inputText']} !important;"
+        f"font-family:{font_family} !important;"
+        f"font-size:{font_size}px !important;"
+        f"line-height:{line_height} !important;"
+        f"letter-spacing:{letter_spacing}px !important;"
+        f"caret-color:{p['fg']} !important;"
+        f"padding:8px !important;"
+    )
+    inner_css = (
+        f"* {{ color:{p['inputText']} !important; }}"
+        f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
+    )
+
+    import json
+    shadow_css_json = json.dumps(f":host {{ {shadow_css} }} {inner_css}")
+
+    return (
+        "(function(){"
+        "  document.querySelectorAll('anki-editable').forEach(function(el){"
+        "    if(el.shadowRoot){"
+        "      var sid='ankithemetwin-shadow';"
+        "      var existing=el.shadowRoot.getElementById(sid);"
+        "      if(existing){existing.remove();}"
+        "      var s=document.createElement('style');"
+        "      s.id=sid;"
+        f"      s.textContent={shadow_css_json};"
+        "      el.shadowRoot.appendChild(s);"
+        "    }"
+        "  });"
+        "})();"
+    )
+
+def on_editor_did_load_note(editor):
+    """Inject shadow DOM styles when editor loads a note."""
+    theme = get_active_theme()
+    js = _build_shadow_dom_js(theme)
+    try:
+        # Small delay to ensure fields are rendered
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 200);")
+    except (RuntimeError, AttributeError):
+        pass
+
 # ---------------- Instant refresh ----------------
 def _build_refresh_js(theme: Theme) -> str:
     """Build JavaScript to refresh CSS in webviews safely using JSON escaping."""
@@ -786,15 +1183,31 @@ def refresh_all_webviews():
     """Push updated CSS into every open webview instantly."""
     theme = get_active_theme()
     js = _build_refresh_js(theme)
+    shadow_js = _build_shadow_dom_js(theme)
     for attr in ("web", "bottomWeb"):
         wv = getattr(mw, attr, None)
         if wv:
             try:
                 wv.eval(js)
-            except (RuntimeError, AttributeError) as e:
-                # WebView might be closed or not ready - safe to ignore
-                # Uncomment for debugging: print(f"AnkiThemeTwin: {e}")
+            except (RuntimeError, AttributeError):
                 pass
+
+    # Also refresh any open Browser and Editor windows
+    try:
+        from aqt.browser.browser import Browser
+        for widget in QApplication.instance().topLevelWidgets():
+            if isinstance(widget, Browser):
+                # Re-apply QSS to the Browser window
+                on_browser_will_show(widget)
+                # Refresh webviews inside browser (editor panel)
+                if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
+                    try:
+                        widget.editor.web.eval(js)
+                        widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                    except (RuntimeError, AttributeError):
+                        pass
+    except (ImportError, RuntimeError, AttributeError):
+        pass
 
 def apply_theme_everywhere(theme: Theme):
     """Apply QSS + refresh all webviews in one call."""
@@ -2305,3 +2718,5 @@ def on_profile_open():
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
+gui_hooks.browser_will_show.append(on_browser_will_show)
+gui_hooks.editor_did_load_note.append(on_editor_did_load_note)
