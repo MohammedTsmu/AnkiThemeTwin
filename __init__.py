@@ -10,7 +10,7 @@ from aqt.qt import (
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
     QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
     QRadioButton, QPalette, QColor, QTimer,
-    QPixmap, QPainter, QPen, QBrush, QIcon, QSize,
+    QPixmap, QPainter, QPen, QBrush,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
@@ -2294,9 +2294,14 @@ def on_editor_did_load_note(editor):
 def _build_refresh_js(theme: Theme) -> str:
     """Build JavaScript to refresh CSS in webviews safely using JSON escaping."""
     import json
-    css = css_vars(palette_for(theme))
+    p = palette_for(theme)
+    css = css_vars(p)
+    # Include background pattern CSS so pattern changes apply instantly
+    pattern = get_background_pattern()
+    pattern_css = get_pattern_css(p, pattern)
+    full_css = css + pattern_css
     # Use JSON encoding for safe JavaScript string escaping
-    css_json = json.dumps(css)
+    css_json = json.dumps(full_css)
     style_id_json = json.dumps(_STYLE_ID)
     return (
         "(function(){"
