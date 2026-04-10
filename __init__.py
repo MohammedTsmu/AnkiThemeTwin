@@ -793,62 +793,61 @@ def css_vars(p):
     )
 
     return (
-        # Override Anki's built-in CSS custom properties used by Svelte components
-        # This ensures ThemeManager colors are replaced with our theme colors
+        # ── CSS Custom Properties ──────────────────────────────────────
+        # These are the ONLY official Anki CSS variables (from _vars.scss).
+        # Anki's Svelte components read these variables to style themselves.
+        # Using !important ensures our values win over Anki's default :root.
+        # We do NOT directly style HTML elements with !important, because
+        # that would override the Svelte component styles.
         ":root {"
+        # Canvas (backgrounds)
         f"  --canvas: {p['bg']} !important;"
         f"  --canvas-elevated: {p['input']} !important;"
         f"  --canvas-overlay: {p['bg']} !important;"
         f"  --canvas-inset: {p['input']} !important;"
         f"  --canvas-glass: {p['bg']}ee !important;"
         f"  --canvas-code: {p['input']} !important;"
+        # Foreground (text)
         f"  --fg: {p['fg']} !important;"
         f"  --fg-subtle: {p['muted']} !important;"
         f"  --fg-disabled: {p['muted']} !important;"
         f"  --fg-faint: {p['border']} !important;"
         f"  --fg-link: {p['accent']} !important;"
+        # Shadows
         f"  --shadow: {p['border']} !important;"
         f"  --shadow-inset: {p['muted']} !important;"
         f"  --shadow-subtle: {p['hover']} !important;"
         f"  --shadow-focus: {p['accent']} !important;"
+        # Borders
         f"  --border: {p['border']} !important;"
         f"  --border-subtle: {p['border']} !important;"
         f"  --border-strong: {p['muted']} !important;"
         f"  --border-focus: {p['accent']} !important;"
+        # Buttons
         f"  --button-bg: {p['button']} !important;"
-        f"  --button-hover: {p['hover']} !important;"
-        f"  --button-hover-border: {p['accent']} !important;"
-        f"  --button-active: {p['selection']} !important;"
-        f"  --button-disabled: {p['border']} !important;"
         f"  --button-gradient-start: {p['button']} !important;"
         f"  --button-gradient-end: {p['hover']} !important;"
+        f"  --button-hover-border: {p['accent']} !important;"
+        f"  --button-disabled: {p['border']} !important;"
+        # Primary button — fg must be white for readability on colored bg
         f"  --button-primary-bg: {p['accent']} !important;"
-        f"  --button-primary-fg: {p['bg']} !important;"
         f"  --button-primary-gradient-start: {p['accent']} !important;"
         f"  --button-primary-gradient-end: {p['accent']} !important;"
         f"  --button-primary-disabled: {p['muted']} !important;"
-        f"  --scrollbar-bg: {p['bg']} !important;"
-        f"  --scrollbar-bg-hover: {p['hover']} !important;"
-        f"  --scrollbar-bg-active: {p['selection']} !important;"
+        # Scrollbar
+        f"  --scrollbar-bg: {p['border']} !important;"
+        f"  --scrollbar-bg-hover: {p['muted']} !important;"
+        f"  --scrollbar-bg-active: {p['accent']} !important;"
+        # Accent colors — card (blue) and note (green) are distinct in Anki
         f"  --accent-card: {p['accent']} !important;"
-        f"  --accent-note: {p['accent']} !important;"
+        f"  --accent-note: {p.get('accentNote', '#16A34A')} !important;"
         f"  --accent-danger: #E74C3C !important;"
-        f"  --badge-bg: {p['button']} !important;"
-        f"  --badge-fg: {p['buttonText']} !important;"
+        # Highlight and selection
         f"  --highlight-bg: {p['selection']} !important;"
         f"  --highlight-fg: {p['fg']} !important;"
         f"  --selected-bg: {p['selection']} !important;"
         f"  --selected-fg: {p['fg']} !important;"
-        f"  --frame-bg: {p['input']} !important;"
-        f"  --window-bg: {p['bg']} !important;"
-        f"  --window-fg: {p['fg']} !important;"
-        # Additional properties used by Anki's editor/browser Svelte components
-        f"  --pane-bg: {p['bg']} !important;"
-        f"  --surface-bg: {p['bg']} !important;"
-        # Editor text color properties
-        f"  --text-fg: {p['fg']} !important;"
-        f"  --editor-fg: {p['inputText']} !important;"
-        f"  --field-bg: {p['input']} !important;"
+        # Flags
         f"  --flag-1: #E74C3C !important;"
         f"  --flag-2: #E67E22 !important;"
         f"  --flag-3: #2ECC71 !important;"
@@ -856,14 +855,14 @@ def css_vars(p):
         f"  --flag-5: #FF69B4 !important;"
         f"  --flag-6: #40E0D0 !important;"
         f"  --flag-7: #9B59B6 !important;"
-        # Card state colors used by Anki's browser table and deck views
+        # Card state colors
         f"  --state-new: {p.get('stateNew', '#3B82F6')} !important;"
         f"  --state-learn: {p.get('stateLearn', '#DC2626')} !important;"
         f"  --state-review: {p.get('stateReview', '#16A34A')} !important;"
         f"  --state-buried: {p.get('stateBuried', '#D97706')} !important;"
         f"  --state-suspended: {p.get('stateSuspended', '#EAB308')} !important;"
         f"  --state-marked: {p.get('stateMarked', '#6366F1')} !important;"
-        # Non-color properties used by Anki's Svelte components
+        # Non-color properties from Anki's _vars.scss
         f"  --font-size: {font_size}px !important;"
         f"  --border-radius: 5px !important;"
         f"  --border-radius-medium: 12px !important;"
@@ -872,171 +871,49 @@ def css_vars(p):
         f"  --transition-medium: 500ms !important;"
         f"  --transition-slow: 1000ms !important;"
         f"  --blur: 20px !important;"
-        # Feature 8: Theme-aware card template helper variables
+        # Feature 8: Theme-aware card template helper variables (--att-* prefix)
         + template_helper_css +
         "}"
-        # Override nightMode/night_mode body classes that Anki applies in dark mode
-        # This ensures our theme colors win even when OS is in dark mode
-        # NOTE: We only override UI-level elements, NOT card content elements
-        # (p, span, div etc.) which are controlled by user card templates
-        f"body.nightMode, body.night_mode, .nightMode, .night_mode {{"
-        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        "}}"
-        f".nightMode .card, .night_mode .card {{"
-        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        "}}"
-        f".nightMode a, .night_mode a {{ color:{p['accent']} !important; }}"
-        f".nightMode button, .night_mode button {{"
-        f"  background:{p['button']} !important; color:{p['buttonText']} !important;"
-        f"  border-color:{p['border']} !important;"
-        "}}"
-        f".nightMode input, .nightMode textarea, .nightMode select,"
-        f".night_mode input, .night_mode textarea, .night_mode select {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border-color:{p['border']} !important;"
-        "}}"
-        f".nightMode table, .night_mode table {{ background:{p['bg']} !important; }}"
-        f".nightMode th, .night_mode th {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}"
-        f".nightMode td, .night_mode td {{ color:{p['fg']} !important; border-color:{p['border']} !important; }}"
-        f".nightMode tr:hover, .night_mode tr:hover {{ background:{p['hover']} !important; }}"
-        f".nightMode .field, .night_mode .field {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border-color:{p['border']} !important;"
-        "}}"
-        f".nightMode [contenteditable], .night_mode [contenteditable] {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        "}}"
-        # Base styles — set background/color on html/body but do NOT force
-        # font-family, line-height, or letter-spacing with !important here
-        # because card templates set their own typography via the .card class
+        # ── Minimal direct styles ──────────────────────────────────────
+        # Only html/body and .card get direct styling. Everything else is
+        # handled by Anki's Svelte components reading the CSS variables above.
+        # We do NOT use !important on element styles so that Svelte components
+        # and card templates can override them with their own specific styles.
         "html, body {"
-        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        f"  background: var(--canvas, {p['bg']});"
+        f"  color: var(--fg, {p['fg']});"
         f'  font-family:{font_family};'
         f"  line-height:{line_height}; font-size:{font_size}px;"
         f"  letter-spacing:{letter_spacing}px;"
         "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
-        f"  {transitions}"
         "}"
-        # Links and selection with transitions
-        f"a {{ color:{p['accent']} !important; text-decoration:underline; {transitions} }}"
-        f"a:hover {{ color:{p['hover']} !important; }}"
-        f"::selection {{ background:{p['selection']}; color:{p['fg']}; }}"
-        # Buttons — style like Anki's native buttons without transform effects
-        f"button, .btn, input[type='button'], input[type='submit'] {{"
-        f"  background:{p['button']} !important;"
-        f"  color:{p['buttonText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:5px;"
-        f"  padding:6px 12px; cursor:pointer;"
-        f"  {transitions}"
-        "}"
-        f"button:hover, .btn:hover {{"
-        f"  background:{p['hover']} !important;"
-        f"  border-color:{p['accent']} !important;"
-        "}}"
-        f"button:active, .btn:active {{"
-        f"  background:{p['selection']} !important;"
-        "}}"
-        # Input fields — style without layout-shifting transform effects
-        f"input, textarea, select {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:4px;"
-        f"  padding:4px 8px;"
-        f"  {transitions}"
-        "}"
-        f"input:focus, textarea:focus, select:focus {{"
-        f"  border-color:{p['accent']} !important; outline:none;"
-        f"  box-shadow:0 0 0 3px {p['accent']}33;"
-        "}}"
-        # Contenteditable divs (Anki editor fields)
-        f"[contenteditable='true'], [contenteditable='plaintext-only'] {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:4px;"
-        f"  padding:8px !important; min-height:60px !important;"
-        f"  {transitions}"
-        "}"
-        f"[contenteditable='true']:focus, [contenteditable='plaintext-only']:focus {{"
-        f"  border-color:{p['accent']} !important; outline:none !important;"
-        f"  box-shadow:0 0 0 3px {p['accent']}33 !important;"
-        "}"
-        # Checkboxes and radio buttons
-        f"input[type='checkbox'], input[type='radio'] {{"
-        f"  border:2px solid {p['border']} !important; background:{p['input']} !important;"
-        f"  {transitions}"
-        "}"
-        # Card content (reviewer) — only set background and color like native Anki
-        # Do NOT add border-radius, padding, box-shadow, or animations that
-        # would alter the card layout from what the user's card template defines
+        # Card content — only background and color, like native Anki.
+        # Card templates control their own layout, fonts, and element styling.
         f".card, .card1, .card2, .card3 {{"
-        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        f"  background: var(--canvas, {p['bg']}); color: var(--fg, {p['fg']});"
         "}}"
-        # Editor fields with subtle shadow
-        f".field {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important;"
-        f"  border-radius:4px; padding:8px;"
-        f"  {transitions}"
-        "}}"
-        # Tables — match Anki's native table styling
-        f"table {{ background:{p['bg']} !important; color:{p['fg']} !important; border-collapse:separate; border-spacing:0; }}"
-        f"th {{ background:{p['button']} !important; color:{p['buttonText']} !important;"
-        f"  border:1px solid {p['border']} !important; padding:8px; font-weight:600; }}"
-        f"td {{ border:1px solid {p['border']} !important; padding:6px; color:{p['fg']} !important; {transitions} }}"
-        f"tr:hover {{ background:{p['hover']} !important; }}"
-        f"tr.drag-hover {{ background:{p['selection']} !important; }}"
-        # Lists
-        f"ul, ol {{ color:{p['fg']} !important; }}"
-        f"li {{ color:{p['fg']} !important; }}"
-        # Code blocks
-        f"code, pre {{"
-        f"  background:{p['input']} !important; color:{p['fg']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:4px;"
-        f"  padding:2px 4px; font-family:monospace;"
-        "}"
-        # Headings
-        f"h1, h2, h3, h4, h5, h6 {{ color:{p['fg']} !important; font-weight:600; }}"
-        # Horizontal rules
-        f"hr {{ border:0; height:1px; background:{p['border']}; }}"
-        # Scrollbars
+        f"::selection {{ background:{p['selection']}; color:{p['fg']}; }}"
+        # Scrollbar theming (doesn't conflict with Svelte)
         f"::-webkit-scrollbar {{ width:12px; height:12px; }}"
-        f"::-webkit-scrollbar-track {{ background:{p['bg']}; }}"
+        f"::-webkit-scrollbar-track {{ background: var(--canvas, {p['bg']}); }}"
         f"::-webkit-scrollbar-thumb {{"
-        f"  background:{p['border']};"
-        f"  border-radius:6px; border:2px solid {p['bg']};"
+        f"  background: var(--scrollbar-bg, {p['border']});"
+        f"  border-radius:6px; border:2px solid var(--canvas, {p['bg']});"
         "}}"
         f"::-webkit-scrollbar-thumb:hover {{"
-        f"  background:{p['muted']};"
+        f"  background: var(--scrollbar-bg-hover, {p['muted']});"
         "}}"
-        # Dropdown menus and autocomplete
-        f".autocomplete, .dropdown-menu {{"
-        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
-        f"  border:1px solid {p['border']} !important;"
-        f"  border-radius:5px; overflow:hidden;"
-        "}"
-        f".autocomplete-item, .dropdown-item {{"
-        f"  color:{p['fg']} !important; padding:8px 12px;"
-        f"  {transitions}"
-        "}"
-        f".autocomplete-item:hover, .dropdown-item:hover {{"
-        f"  background:{p['hover']} !important; color:{p['fg']} !important;"
-        "}"
-        f".autocomplete-item.selected, .dropdown-item.selected {{"
-        f"  background:{p['selection']} !important; color:{p['fg']} !important;"
-        "}"
-        # Modal dialogs
-        f".modal, .overlay {{"
-        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:8px;"
-        "}"
-        f".modal-header {{"
-        f"  background:{p['button']} !important;"
-        f"  color:{p['buttonText']} !important; border-bottom:1px solid {p['border']} !important;"
-        f"  border-radius:8px 8px 0 0; padding:12px 16px;"
+        # Night mode fallback — ensure our background/color wins when Anki
+        # adds nightMode/night_mode class in dark mode scenarios
+        f"body.nightMode, body.night_mode {{"
+        f"  background: var(--canvas, {p['bg']}) !important;"
+        f"  color: var(--fg, {p['fg']}) !important;"
         "}}"
-        f".modal-footer {{"
-        f"  background:{p['button']} !important; border-top:1px solid {p['border']} !important;"
-        f"  border-radius:0 0 8px 8px; padding:12px 16px;"
+        f".nightMode .card, .night_mode .card {{"
+        f"  background: var(--canvas, {p['bg']}) !important;"
+        f"  color: var(--fg, {p['fg']}) !important;"
         "}}"
-        # Additional animation keyframes (Feature 11)
+        # Animation keyframes (Feature 11 — only definitions, not applied)
         "@keyframes slideIn {"
         "  from { opacity:0; transform:translateX(-20px); }"
         "  to { opacity:1; transform:translateX(0); }"
@@ -1078,16 +955,23 @@ def inject_css(web_content, ctx):
     # Check context type and add specific styling
     ctx_name = ctx.__class__.__name__ if hasattr(ctx, '__class__') else str(ctx)
 
-    # DeckBrowser - main deck list
+    # DeckBrowser - main deck list (plain HTML, not Svelte — needs element styling)
     if "DeckBrowser" in ctx_name:
         context_css += f"""
-        /* Deck browser specific */
-        .deck {{ color:{p['fg']} !important; }}
-        .deck-current {{ background:{p['hover']} !important; }}
-        tr.deck td {{ padding:8px !important; color:{p['fg']} !important; }}
-        .collapse {{ color:{p['muted']} !important; }}
-        .filtered {{ color:{p['accent']} !important; }}
-        .gears {{ color:{p['muted']} !important; }}
+        /* Deck browser specific — this is plain HTML, not Svelte components */
+        a {{ color:{p['accent']}; }}
+        table {{ background:{p['bg']}; color:{p['fg']}; }}
+        td {{ color:{p['fg']}; padding:6px; }}
+        th {{ background:{p['button']}; color:{p['buttonText']}; padding:8px; }}
+        tr:hover {{ background:{p['hover']}; }}
+        .deck {{ color:{p['fg']}; }}
+        .deck-current {{ background:{p['hover']}; }}
+        tr.deck td {{ padding:8px; color:{p['fg']}; }}
+        .collapse {{ color:{p['muted']}; }}
+        .filtered {{ color:{p['accent']}; }}
+        .gears {{ color:{p['muted']}; }}
+        button {{ background:{p['button']}; color:{p['buttonText']}; border:1px solid {p['border']}; border-radius:5px; padding:6px 12px; }}
+        button:hover {{ background:{p['hover']}; }}
         """
 
     # Reviewer - card display
@@ -1097,17 +981,16 @@ def inject_css(web_content, ctx):
            Card content inherits color from .card which is set in base CSS.
            We do NOT force color on generic elements (p, span, div, li)
            because user card templates control their own formatting. */
-        #qa {{ background:{p['bg']} !important; }}
-        .nightMode .card, .night_mode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
-        .nightMode #qa, .night_mode #qa {{ background:{p['bg']} !important; }}
-        .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
-        .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
-        .typeGood {{ color:{p['accent']} !important; }}
-        .typeBad {{ color:#E74C3C !important; }}
-        .typeMissed {{ color:#F39C12 !important; }}
+        #qa {{ background: var(--canvas, {p['bg']}); }}
+        .nightMode .card, .night_mode .card {{ background: var(--canvas, {p['bg']}) !important; color: var(--fg, {p['fg']}) !important; }}
+        .nightMode #qa, .night_mode #qa {{ background: var(--canvas, {p['bg']}) !important; }}
+        .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']}; border:1px solid {p['border']}; }}
+        .replay-button {{ background:{p['button']}; border:1px solid {p['border']}; }}
+        .typeGood {{ color:{p['accent']}; }}
+        .typeBad {{ color:#E74C3C; }}
+        .typeMissed {{ color:#F39C12; }}
         /* Bottom bar answer buttons and stats */
-        .nightMode .stattxt, .night_mode .stattxt {{ color:{p['fg']} !important; }}
-        .stattxt {{ color:{p['fg']} !important; }}
+        .stattxt {{ color: var(--fg, {p['fg']}); }}
         """
 
     # Editor or AddCards - note editing
@@ -1162,11 +1045,17 @@ def inject_css(web_content, ctx):
         .editor-field:focus-within {{ border-color:{p['accent']} !important; box-shadow:0 0 0 3px {p['accent']}33 !important; }}
         """
 
-    # Overview - deck overview
+    # Overview - deck overview (plain HTML page)
     elif "Overview" in ctx_name:
         context_css += f"""
-        /* Overview specific */
-        .descfont {{ color:{p['fg']} !important; }}
+        /* Overview specific — plain HTML, needs element styling */
+        .descfont {{ color:{p['fg']}; }}
+        a {{ color:{p['accent']}; }}
+        button {{ background:{p['button']}; color:{p['buttonText']}; border:1px solid {p['border']}; border-radius:5px; padding:6px 12px; }}
+        button:hover {{ background:{p['hover']}; }}
+        h3, h4 {{ color:{p['fg']}; }}
+        table {{ background:{p['bg']}; color:{p['fg']}; }}
+        td {{ color:{p['fg']}; }}
         """
 
     # Browser - card browser
@@ -1237,11 +1126,16 @@ def inject_css(web_content, ctx):
         #deck {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         """
 
-    # Toolbar and bottom bars
+    # Toolbar and bottom bars (plain HTML pages)
     elif "Toolbar" in ctx_name or "BottomBar" in ctx_name:
         context_css += f"""
-        /* Toolbar/BottomBar specific */
-        .bottom {{ background:{p['bg']} !important; border-top:1px solid {p['border']} !important; }}
+        /* Toolbar/BottomBar specific — plain HTML, needs element styling */
+        body {{ background:{p['bg']}; color:{p['fg']}; }}
+        .bottom {{ background:{p['bg']}; border-top:1px solid {p['border']}; }}
+        a {{ color:{p['accent']}; }}
+        button {{ background:{p['button']}; color:{p['buttonText']}; border:1px solid {p['border']}; border-radius:5px; padding:6px 12px; }}
+        button:hover {{ background:{p['hover']}; }}
+        td {{ color:{p['fg']}; }}
         """
 
     # Combine all CSS
