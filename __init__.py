@@ -13,6 +13,7 @@ from aqt.qt import (
     QPixmap, QPainter, QPen, QBrush,
 )
 from aqt.utils import openLink, showInfo, tooltip
+import aqt.utils as _aqt_utils
 from typing import Literal, Any, Optional
 import json
 import os
@@ -178,6 +179,8 @@ def _restore_system_theme():
         pass
     # Refresh webviews to remove our injected CSS
     _remove_addon_css_from_webviews()
+    # Restore original tooltip function
+    _uninstall_tooltip_patch()
 
 # ---------------- CSS / QSS ----------------
 _STYLE_ID = "ankithemetwin-style"
@@ -1835,6 +1838,71 @@ def force_anki_theme_mode(theme: Theme):
         except (RuntimeError, AttributeError):
             pass
 
+# --- Tooltip monkey-patch --------------------------------------------------
+# Anki's aqt.utils.tooltip() creates a QLabel with ToolTip window flags.
+# App-level QSS does NOT reliably propagate to ToolTip-type top-level
+# windows, causing them to render with a black background.  We wrap the
+# original function so that, right after the label is created and shown,
+# we apply our theme colours directly to the widget.
+#
+# Because multiple Anki modules (e.g. aqt.sync) do
+#   ``from aqt.utils import tooltip``
+# — a direct function reference — patching aqt.utils.tooltip alone is not
+# enough.  We must also walk sys.modules and replace every reference that
+# still points at the original function.
+
+import sys as _sys
+
+_original_tooltip = _aqt_utils.tooltip   # keep a ref to the real function
+
+def _themed_tooltip(
+    msg: str,
+    period: int = 3000,
+    parent=None,
+    x_offset: int = 0,
+    y_offset: int = 100,
+) -> None:
+    """Call the real Anki tooltip, then re-style the label with our theme."""
+    _original_tooltip(msg, period=period, parent=parent,
+                      x_offset=x_offset, y_offset=y_offset)
+    try:
+        lab = getattr(_aqt_utils, '_tooltipLabel', None)
+        if lab is None or is_follow_system_theme():
+            return
+        p = palette_for(current_theme())
+        # Direct widget stylesheet overrides anything the app sheet does
+        lab.setStyleSheet(
+            f"QLabel {{ background:{p['button']}; color:{p['buttonText']}; "
+            f"border:1px solid {p['border']}; padding:4px; }}"
+        )
+    except Exception:
+        pass   # never break Anki's tooltip on unexpected errors
+
+def _install_tooltip_patch():
+    """Replace aqt.utils.tooltip with our themed wrapper everywhere."""
+    _aqt_utils.tooltip = _themed_tooltip
+    # Walk loaded modules and replace any direct references to the original
+    for mod in list(_sys.modules.values()):
+        if mod is None:
+            continue
+        try:
+            if getattr(mod, 'tooltip', None) is _original_tooltip:
+                mod.tooltip = _themed_tooltip
+        except Exception:
+            pass
+
+def _uninstall_tooltip_patch():
+    """Restore the original tooltip function everywhere."""
+    _aqt_utils.tooltip = _original_tooltip
+    for mod in list(_sys.modules.values()):
+        if mod is None:
+            continue
+        try:
+            if getattr(mod, 'tooltip', None) is _themed_tooltip:
+                mod.tooltip = _original_tooltip
+        except Exception:
+            pass
+
 def on_theme_did_change():
     """Called when Anki's theme changes (e.g. OS dark/light switch).
 
@@ -2460,6 +2528,9 @@ def apply_theme_everywhere(theme: Theme):
         mw.setStyleSheet(qss(p))
     except (RuntimeError, AttributeError):
         pass
+
+    # Ensure tooltip patch is active when theming is on
+    _install_tooltip_patch()
 
     refresh_all_webviews()
 
@@ -5249,8 +5320,14 @@ def on_profile_open():
     # Feature 9: Apply ambient light filter
     _apply_ambient_light()
 
-    # Apply current theme
+    # Apply current theme (also installs/uninstalls tooltip patch)
     apply_theme_everywhere(get_active_theme())
+
+    # Re-run tooltip patch to catch modules that loaded during theme setup
+    if not is_follow_system_theme():
+        _install_tooltip_patch()
+    else:
+        _uninstall_tooltip_patch()
 
     # Feature 13: Update status bar
     _update_status_bar()
