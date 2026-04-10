@@ -675,13 +675,17 @@ def _check_seasonal_theme():
     """Apply seasonal theme if enabled."""
     if not get_seasonal_themes_enabled():
         return
+    cfg = get_config()
+    seasonal_cfg = cfg.get("seasonalThemes", {})
     month = datetime.now().month
     for season, data in SEASONAL_THEMES.items():
         if month in data["months"]:
+            # Use user-configured theme or fall back to default
+            target = seasonal_cfg.get(season, data["theme"])
+            if target not in PALETTES:
+                target = data["theme"]
             current = get_active_theme()
-            target = data["theme"]
             if current != target:
-                cfg = get_config()
                 cfg["currentTheme"] = target
                 write_config(cfg)
                 apply_theme_everywhere(target)
@@ -4496,8 +4500,6 @@ def show_seasonal_themes_dialog():
         new_seasonal = {"enabled": enabled_cb.isChecked()}
         for season, combo in season_combos.items():
             new_seasonal[season] = combo.currentText()
-            # Also update the SEASONAL_THEMES default mapping
-            SEASONAL_THEMES[season]["theme"] = combo.currentText()
         cfg = get_config()
         cfg["seasonalThemes"] = new_seasonal
         write_config(cfg)
