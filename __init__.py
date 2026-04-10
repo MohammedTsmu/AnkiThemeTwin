@@ -181,6 +181,8 @@ def _restore_system_theme():
     _remove_addon_css_from_webviews()
     # Restore original tooltip function
     _uninstall_tooltip_patch()
+    # Restore original load_ts_page
+    _uninstall_ts_page_patch()
 
 # ---------------- CSS / QSS ----------------
 _STYLE_ID = "ankithemetwin-style"
@@ -2247,6 +2249,84 @@ def _build_refresh_js(theme: Theme) -> str:
         "})();"
     )
 
+# ------------ Monkey-patch load_ts_page for TS-based dialogs -----------
+# Anki's Deck Options, Preferences, Import dialogs, etc. use
+# AnkiWebView.load_ts_page() which navigates directly to a URL served by
+# Anki's built-in web server.  This bypasses stdHtml() so the
+# webview_will_set_content hook never fires and our CSS variables are
+# never injected.  We wrap load_ts_page to inject theme CSS after the
+# page finishes loading.
+
+_original_load_ts_page = None  # set by _install_ts_page_patch()
+
+
+def _install_ts_page_patch():
+    """Monkey-patch AnkiWebView.load_ts_page to inject theme CSS."""
+    global _original_load_ts_page
+    try:
+        from aqt.webview import AnkiWebView
+    except ImportError:
+        return
+    if _original_load_ts_page is not None:
+        return  # already patched
+    _original_load_ts_page = AnkiWebView.load_ts_page
+
+    def _themed_load_ts_page(self, name, *args, **kwargs):
+        _original_load_ts_page(self, name, *args, **kwargs)
+        if is_follow_system_theme():
+            return
+        theme = get_active_theme()
+        js = _build_refresh_js(theme)
+
+        def _on_load_finished(ok, _wv=self, _js=js):
+            # Disconnect immediately to avoid duplicate injections
+            try:
+                _wv.loadFinished.disconnect(_on_load_finished)
+            except (RuntimeError, TypeError):
+                pass
+            if not ok:
+                return
+            try:
+                _wv.page().runJavaScript(_js)
+            except (RuntimeError, AttributeError):
+                pass
+            # Re-inject after short delays so late-mounting Svelte
+            # components pick up the CSS variables
+            for delay in (150, 500):
+                QTimer.singleShot(
+                    delay,
+                    lambda _w=_wv, _j=_js: _safe_run_js(_w, _j),
+                )
+
+        try:
+            self.loadFinished.connect(_on_load_finished)
+        except (RuntimeError, AttributeError):
+            pass
+
+    AnkiWebView.load_ts_page = _themed_load_ts_page
+
+
+def _uninstall_ts_page_patch():
+    """Restore original load_ts_page."""
+    global _original_load_ts_page
+    if _original_load_ts_page is None:
+        return
+    try:
+        from aqt.webview import AnkiWebView
+        AnkiWebView.load_ts_page = _original_load_ts_page
+    except ImportError:
+        pass
+    _original_load_ts_page = None
+
+
+def _safe_run_js(wv, js):
+    """Run JavaScript on a webview, ignoring errors from deleted widgets."""
+    try:
+        wv.page().runJavaScript(js)
+    except (RuntimeError, AttributeError):
+        pass
+
+
 def refresh_all_webviews():
     """Push updated CSS into every open webview instantly.
 
@@ -2394,6 +2474,8 @@ def apply_theme_everywhere(theme: Theme):
 
     # Ensure tooltip patch is active when theming is on
     _install_tooltip_patch()
+    # Ensure TS page patch is active (Deck Options, Preferences, etc.)
+    _install_ts_page_patch()
 
     refresh_all_webviews()
 
@@ -5187,10 +5269,14 @@ def on_profile_open():
     apply_theme_everywhere(get_active_theme())
 
     # Re-run tooltip patch to catch modules that loaded during theme setup
+    # Also install the load_ts_page patch so Deck Options, Preferences, etc.
+    # (TS/Svelte pages loaded via load_ts_page) receive our theme CSS.
     if not is_follow_system_theme():
         _install_tooltip_patch()
+        _install_ts_page_patch()
     else:
         _uninstall_tooltip_patch()
+        _uninstall_ts_page_patch()
 
     # Feature 13: Update status bar
     _update_status_bar()
