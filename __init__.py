@@ -119,7 +119,7 @@ PALETTES = {
 
 def palette_for(theme: Theme) -> dict:
     """Return the color palette dictionary for the given theme."""
-    return PALETTES[theme]
+    return PALETTES.get(theme, PALETTES["sepia_special"])
 
 def normalize_theme(t: str) -> Theme:
     legacy = {"sepia":"sepia_word","gray":"gray_word"}
@@ -2548,13 +2548,15 @@ def import_theme(file_path: str):
             theme_data = json.load(f)
         name = theme_data.get("name", "imported_theme")
         palette = theme_data.get("palette")
-        if palette:
+        if palette and isinstance(palette, dict):
             save_custom_theme(name, palette)
             tooltip(f"Theme '{name}' imported successfully!")
         else:
-            showInfo("Invalid theme file!")
-    except Exception as e:
+            showInfo("Invalid theme file: missing or invalid 'palette' field.")
+    except (OSError, IOError, json.JSONDecodeError) as e:
         showInfo(f"Error importing theme: {e}")
+    except Exception:
+        showInfo("Error importing theme file.")
 
 # ---------------- Scheduled Theme Switching ----------------
 def get_scheduled_themes() -> dict:
@@ -3035,8 +3037,10 @@ def import_configuration_from_file(file_path: str):
         with open(file_path, 'r') as f:
             backup_json = f.read()
         restore_configuration(backup_json)
-    except Exception as e:
+    except (OSError, IOError, json.JSONDecodeError) as e:
         showInfo(f"Error importing configuration: {e}")
+    except Exception:
+        showInfo("Error importing configuration file.")
 
 # ---------------- Theme Statistics ----------------
 def get_theme_statistics() -> dict:
@@ -4748,19 +4752,30 @@ def show_community_gallery_dialog():
         url = url_input.text().strip()
         if not url:
             return
+        # Validate URL scheme to prevent local file access and non-HTTP requests
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            showInfo("Only http:// and https:// URLs are supported.")
+            return
+        if not parsed.hostname:
+            showInfo("Invalid URL.")
+            return
         try:
             import urllib.request
             with urllib.request.urlopen(url, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
             name = data.get("name", "imported_theme")
             palette = data.get("palette")
-            if palette:
+            if palette and isinstance(palette, dict):
                 save_custom_theme(name, palette)
                 tooltip(f"✅ '{name}' imported from URL!")
             else:
-                showInfo("Invalid theme format!")
-        except Exception as e:
-            showInfo(f"Error importing: {e}")
+                showInfo("Invalid theme format: missing or invalid 'palette' field.")
+        except (OSError, IOError, json.JSONDecodeError, ValueError) as e:
+            showInfo(f"Error importing theme: {e}")
+        except Exception:
+            showInfo("Error importing theme from URL.")
 
     fetch_btn = QPushButton("Fetch & Install")
     fetch_btn.clicked.connect(import_from_url)

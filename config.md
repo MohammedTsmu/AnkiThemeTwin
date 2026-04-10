@@ -2,7 +2,7 @@
 
 - `currentTheme`: The selected theme. One of `"sepia_word"`, `"sepia_paper"`, `"sepia_special"`, `"gray_word"`, `"gray_paper"`, `"blue_light"`, `"olive_green"`, `"high_contrast_light"`, `"high_contrast_dark"`, `"dyslexia_friendly"`, `"deuteranopia"`, `"protanopia"`, `"tritanopia"`, or any custom theme name. Default: `"sepia_special"`.
 
-- `fontSize`: Font size in pixels for webview content. Range: 8–72. Default: `16`.
+- `fontSize`: Font size in pixels for webview content. Range: 8–32. Default: `16`.
 
 - `followSystemTheme`: When `true`, addon theming is disabled and Anki's native dark/light mode controls the appearance. Default: `false`.
 
