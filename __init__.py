@@ -1,4 +1,4 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.5.1
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.5.2
 # Enhanced theming with keyboard shortcuts, more font sizes, theme presets, and custom theme creator
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
@@ -17,7 +17,7 @@ import json
 import os
 from datetime import datetime, time
 
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
@@ -955,27 +955,54 @@ def apply_qt_styles(theme: Theme):
         app.setStyleSheet(qss(palette_for(theme)))
 
 def _build_qt_palette(p: dict) -> QPalette:
-    """Build a QPalette from our theme colors to override the OS/Qt dark palette."""
+    """Build a QPalette from our theme colors to override the OS/Qt dark palette.
+
+    Sets colors for ALL color groups (Active, Inactive, Disabled) to ensure
+    the OS theme cannot override any state of our widgets.
+    """
     pal = QPalette()
-    pal.setColor(QPalette.ColorRole.Window, QColor(p['bg']))
-    pal.setColor(QPalette.ColorRole.WindowText, QColor(p['fg']))
-    pal.setColor(QPalette.ColorRole.Base, QColor(p['input']))
-    pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['bg']))
-    pal.setColor(QPalette.ColorRole.ToolTipBase, QColor(p['button']))
-    pal.setColor(QPalette.ColorRole.ToolTipText, QColor(p['buttonText']))
-    pal.setColor(QPalette.ColorRole.Text, QColor(p['inputText']))
-    pal.setColor(QPalette.ColorRole.Button, QColor(p['button']))
-    pal.setColor(QPalette.ColorRole.ButtonText, QColor(p['buttonText']))
-    pal.setColor(QPalette.ColorRole.BrightText, QColor(p['accent']))
-    pal.setColor(QPalette.ColorRole.Link, QColor(p['accent']))
-    pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
-    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
-    pal.setColor(QPalette.ColorRole.PlaceholderText, QColor(p['muted']))
-    pal.setColor(QPalette.ColorRole.Light, QColor(p['hover']))
-    pal.setColor(QPalette.ColorRole.Midlight, QColor(p['border']))
-    pal.setColor(QPalette.ColorRole.Mid, QColor(p['muted']))
-    pal.setColor(QPalette.ColorRole.Dark, QColor(p['muted']))
-    pal.setColor(QPalette.ColorRole.Shadow, QColor(p['border']))
+
+    # Define all color role mappings
+    color_map = {
+        QPalette.ColorRole.Window: QColor(p['bg']),
+        QPalette.ColorRole.WindowText: QColor(p['fg']),
+        QPalette.ColorRole.Base: QColor(p['input']),
+        QPalette.ColorRole.AlternateBase: QColor(p['bg']),
+        QPalette.ColorRole.ToolTipBase: QColor(p['button']),
+        QPalette.ColorRole.ToolTipText: QColor(p['buttonText']),
+        QPalette.ColorRole.Text: QColor(p['inputText']),
+        QPalette.ColorRole.Button: QColor(p['button']),
+        QPalette.ColorRole.ButtonText: QColor(p['buttonText']),
+        QPalette.ColorRole.BrightText: QColor(p['accent']),
+        QPalette.ColorRole.Link: QColor(p['accent']),
+        QPalette.ColorRole.Highlight: QColor(p['selection']),
+        QPalette.ColorRole.HighlightedText: QColor(p['fg']),
+        QPalette.ColorRole.PlaceholderText: QColor(p['muted']),
+        QPalette.ColorRole.Light: QColor(p['hover']),
+        QPalette.ColorRole.Midlight: QColor(p['border']),
+        QPalette.ColorRole.Mid: QColor(p['muted']),
+        QPalette.ColorRole.Dark: QColor(p['muted']),
+        QPalette.ColorRole.Shadow: QColor(p['border']),
+    }
+
+    # Apply to all color groups so OS theme can't override any state
+    groups = [
+        QPalette.ColorGroup.Active,
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorGroup.Disabled,
+    ]
+    for group in groups:
+        for role, color in color_map.items():
+            if group == QPalette.ColorGroup.Disabled:
+                # Use muted colors for disabled state
+                if role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text,
+                            QPalette.ColorRole.ButtonText):
+                    pal.setColor(group, role, QColor(p['muted']))
+                else:
+                    pal.setColor(group, role, color)
+            else:
+                pal.setColor(group, role, color)
+
     return pal
 
 def force_anki_theme_mode(theme: Theme):
@@ -998,6 +1025,10 @@ def force_anki_theme_mode(theme: Theme):
     try:
         from aqt.theme import theme_manager
         theme_manager.night_mode = is_dark_theme
+        # Also try to set the default palette on theme_manager if it has one,
+        # preventing Anki from using its own calculated palette
+        if hasattr(theme_manager, '_default_palette'):
+            theme_manager._default_palette = _build_qt_palette(p)
     except (ImportError, AttributeError):
         pass
 
@@ -1014,20 +1045,37 @@ def on_theme_did_change():
 
     Re-assert our addon theme to prevent Anki's ThemeManager from
     overriding our colors when the OS theme changes.
+
+    Uses delayed re-assertions because Anki continues to reload webviews
+    and re-apply its own styles AFTER this hook fires.
     """
     # Guard against recursive calls
     if getattr(mw, "_ankitwin_theme_changing", False):
         return
     mw._ankitwin_theme_changing = True
+
+    def _reapply_theme():
+        """Re-assert our theme over Anki's."""
+        try:
+            apply_theme_everywhere(get_active_theme())
+        except (RuntimeError, AttributeError):
+            pass
+
     try:
-        theme = get_active_theme()
-        force_anki_theme_mode(theme)
-        apply_qt_styles(theme)
-        refresh_all_webviews()
-    finally:
-        # Use a timer to reset the guard after a short delay
+        # Immediate re-assertion
+        _reapply_theme()
+
+        # Delayed re-assertions to catch Anki's own reloads that happen
+        # AFTER theme_did_change fires. Anki reloads webviews, re-applies
+        # its QPalette, and resets its QSS at various points after the hook.
         from aqt.qt import QTimer
-        QTimer.singleShot(500, lambda: setattr(mw, "_ankitwin_theme_changing", False))
+        QTimer.singleShot(200, _reapply_theme)
+        QTimer.singleShot(800, _reapply_theme)
+        QTimer.singleShot(1500, _reapply_theme)
+    finally:
+        # Reset guard after all re-assertions have had time to complete
+        from aqt.qt import QTimer
+        QTimer.singleShot(2000, lambda: setattr(mw, "_ankitwin_theme_changing", False))
 
 # ---------------- Browser-specific Qt widget theming ----------------
 def on_browser_will_show(browser):
@@ -1292,10 +1340,17 @@ def _build_refresh_js(theme: Theme) -> str:
     )
 
 def refresh_all_webviews():
-    """Push updated CSS into every open webview instantly."""
+    """Push updated CSS into every open webview instantly.
+
+    Covers: main window webviews, Browser, AddCards, EditCurrent,
+    Stats, and any other open dialog with webviews or editors.
+    """
     theme = get_active_theme()
+    p = palette_for(theme)
     js = _build_refresh_js(theme)
     shadow_js = _build_shadow_dom_js(theme)
+
+    # 1. Main window webviews (deck browser, reviewer, toolbar, bottom bar)
     for attr in ("web", "bottomWeb"):
         wv = getattr(mw, attr, None)
         if wv:
@@ -1304,27 +1359,94 @@ def refresh_all_webviews():
             except (RuntimeError, AttributeError):
                 pass
 
-    # Also refresh any open Browser and Editor windows
+    # 2. If reviewer is active, also refresh its webview explicitly
+    reviewer = getattr(mw, "reviewer", None)
+    if reviewer:
+        wv = getattr(reviewer, "web", None)
+        if wv:
+            try:
+                wv.eval(js)
+            except (RuntimeError, AttributeError):
+                pass
+        bottom = getattr(reviewer, "bottom", None)
+        if bottom:
+            bwv = getattr(bottom, "web", None)
+            if bwv:
+                try:
+                    bwv.eval(js)
+                except (RuntimeError, AttributeError):
+                    pass
+
+    # 3. Scan ALL open top-level widgets for webviews and editors
+    app = QApplication.instance()
+    if not app:
+        return
+
     try:
         from aqt.browser.browser import Browser
-        for widget in QApplication.instance().topLevelWidgets():
-            if isinstance(widget, Browser):
-                # Re-apply QSS to the Browser window
-                on_browser_will_show(widget)
-                # Refresh webviews inside browser (editor panel)
-                if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
-                    try:
-                        widget.editor.web.eval(js)
-                        widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
-                    except (RuntimeError, AttributeError):
-                        pass
-    except (ImportError, RuntimeError, AttributeError):
-        pass
+    except ImportError:
+        Browser = None
+
+    for widget in app.topLevelWidgets():
+        try:
+            if not widget.isVisible():
+                continue
+        except (RuntimeError, AttributeError):
+            continue
+
+        # Re-apply QSS to every visible top-level window so Qt widgets
+        # (menus, labels, inputs, etc.) get our theme colors
+        try:
+            widget.setStyleSheet(qss(p))
+        except (RuntimeError, AttributeError):
+            pass
+
+        # Browser windows get special treatment
+        if Browser and isinstance(widget, Browser):
+            on_browser_will_show(widget)
+            if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
+                try:
+                    widget.editor.web.eval(js)
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                except (RuntimeError, AttributeError):
+                    pass
+            continue
+
+        # Find any webview (QWebEngineView) inside the widget and eval our CSS
+        try:
+            from aqt.qt import QWebEngineView
+            for wv in widget.findChildren(QWebEngineView):
+                try:
+                    wv.page().runJavaScript(js)
+                except (RuntimeError, AttributeError):
+                    pass
+        except (ImportError, RuntimeError, AttributeError):
+            pass
+
+        # Find any editor inside the widget (AddCards, EditCurrent, etc.)
+        # and refresh its webview + shadow DOM
+        if hasattr(widget, 'editor') and widget.editor:
+            editor = widget.editor
+            if hasattr(editor, 'web') and editor.web:
+                try:
+                    editor.web.eval(js)
+                    editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                except (RuntimeError, AttributeError):
+                    pass
 
 def apply_theme_everywhere(theme: Theme):
     """Apply QSS + force theme mode + refresh all webviews in one call."""
     force_anki_theme_mode(theme)
     apply_qt_styles(theme)
+
+    # Also apply QSS directly to the main window to override any per-widget
+    # stylesheets Anki might set
+    p = palette_for(theme)
+    try:
+        mw.setStyleSheet(qss(p))
+    except (RuntimeError, AttributeError):
+        pass
+
     refresh_all_webviews()
 
 # ---------------- Theme Presets ----------------

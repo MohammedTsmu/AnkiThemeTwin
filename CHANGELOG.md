@@ -2,6 +2,23 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.5.2] - 2026-04-10
+
+### Fixed - OS Theme Override on All Windows (Not Just Browser)
+
+#### Delayed Theme Re-assertion
+- **Multiple timer re-assertions (200ms, 800ms, 1500ms)**: When OS theme switches, Anki reloads webviews AFTER firing the `theme_did_change` hook. Our handler now re-applies the addon theme at multiple delays to ensure it wins the race against Anki's own reload cycle.
+
+#### Comprehensive Window Refresh
+- **All open windows refreshed**: `refresh_all_webviews()` now scans ALL visible top-level windows (AddCards, EditCurrent, Stats, Preferences, etc.) and re-applies QSS and webview CSS - not just the Browser window.
+- **QWebEngineView scan**: Finds and re-injects CSS into any QWebEngineView inside open dialogs.
+- **Editor detection in all dialogs**: Finds editor components in any dialog (AddCards, EditCurrent) and re-injects Shadow DOM styles.
+- **Main window QSS**: `apply_theme_everywhere()` now also sets QSS directly on the main window to override per-widget stylesheets Anki may set.
+- **Reviewer refresh**: Explicitly refreshes reviewer webview and bottom bar when active.
+
+#### QPalette for All Color Groups
+- **Active/Inactive/Disabled color groups**: The Qt QPalette now sets colors for all three color groups, preventing the OS from overriding any widget state with dark colors.
+
 ## [1.5.1] - 2026-04-10
 
 ### Fixed - Windows 11 Dark/Light Theme Override
