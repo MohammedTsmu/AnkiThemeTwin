@@ -16,11 +16,11 @@
 
 - `customThemes`: Dictionary of user-created themes. Keys are theme names, values are palette color dictionaries. Default: `{}`.
 
-- `scheduledThemes`: Configuration for automatic time-based theme switching. Contains `enabled` (bool) and four period objects (`morning`, `afternoon`, `evening`, `night`), each with `time` (HH:MM) and `theme` (theme name). Default: disabled.
+- `scheduledThemes`: Configuration for automatic time-based theme switching. Contains `enabled` (bool, default: `false`) and four period objects (`morning`, `afternoon`, `evening`, `night`), each with `time` (HH:MM) and `theme` (theme name). See `config.json` for the full default structure.
 
 - `deckThemes`: Dictionary mapping deck names to theme names for per-deck theming. Default: `{}`.
 
-- `animations`: Animation settings object with `enabled` (bool), `duration` (ms, 100–2000), and `style` (`"fade"` or `"none"`). Default: enabled at 300ms with fade.
+- `animations`: Animation settings object with `enabled` (bool), `duration` (ms, 100–2000; values outside range are accepted but may look odd), and `style` (`"fade"` or `"none"`). Default: enabled at 300ms with fade.
 
 - `backgroundPattern`: Background pattern overlay. One of `"none"`, `"subtle"`, `"dots"`, `"grid"`, or `"lines"`. Default: `"none"`.
 
