@@ -91,7 +91,7 @@ DEUTERANOPIA = {"bg":"#F0F0E8","fg":"#003366","muted":"#666699","border":"#9999C
     "input":"#FAFAF5","inputText":"#003366","hover":"#E0E0D8","selection":"#CCCCBB"}
 PROTANOPIA = {"bg":"#EFF5FF","fg":"#004080","muted":"#5577AA","border":"#99BBDD",
     "accent":"#CC7700","button":"#E7EDF5","buttonText":"#004080",
-    "input":"#F7FBFF","inputText":"#004080","hover":"#DFE9F5","selection":"#CCDDF"}
+    "input":"#F7FBFF","inputText":"#004080","hover":"#DFE9F5","selection":"#CCDDFF"}
 TRITANOPIA = {"bg":"#FFF0F0","fg":"#330022","muted":"#775566","border":"#CCAACC",
     "accent":"#CC3366","button":"#FFE8E8","buttonText":"#330022",
     "input":"#FFF8F8","inputText":"#330022","hover":"#FFE0E0","selection":"#FFCCDD"}
@@ -1916,9 +1916,12 @@ def export_theme(theme_name: str, file_path: str):
             "palette": PALETTES[theme_name],
             "version": VERSION,
         }
-        with open(file_path, 'w') as f:
-            json.dump(theme_data, f, indent=2)
-        tooltip(f"Theme exported to {file_path}")
+        try:
+            with open(file_path, 'w') as f:
+                json.dump(theme_data, f, indent=2)
+            tooltip(f"Theme exported to {file_path}")
+        except (OSError, IOError) as e:
+            showInfo(f"Error exporting theme: {e}")
     else:
         showInfo(f"Theme '{theme_name}' not found!")
 
@@ -2231,10 +2234,13 @@ def restore_configuration(backup_json: str) -> bool:
 
 def export_configuration_to_file(file_path: str):
     """Export configuration to file."""
-    backup_json = backup_configuration()
-    with open(file_path, 'w') as f:
-        f.write(backup_json)
-    tooltip(f"Configuration exported to {file_path}")
+    try:
+        backup_json = backup_configuration()
+        with open(file_path, 'w') as f:
+            f.write(backup_json)
+        tooltip(f"Configuration exported to {file_path}")
+    except (OSError, IOError) as e:
+        showInfo(f"Error exporting configuration: {e}")
 
 def import_configuration_from_file(file_path: str):
     """Import configuration from file."""
@@ -3296,7 +3302,6 @@ def add_menu():
 # ---------------- Visual Feedback ----------------
 def show_shortcut_feedback(message: str, icon: str = "⚡"):
     """Show enhanced visual feedback for keyboard shortcuts."""
-    from aqt.utils import showInfo
     tooltip(f"{icon} {message}", period=1500)
 
 def setup_keyboard_shortcuts():
