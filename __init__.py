@@ -10,6 +10,7 @@ from aqt.qt import (
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
     QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
     QRadioButton, QPalette, QColor, QTimer,
+    QPixmap, QPainter, QPen, QBrush,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
@@ -2293,9 +2294,14 @@ def on_editor_did_load_note(editor):
 def _build_refresh_js(theme: Theme) -> str:
     """Build JavaScript to refresh CSS in webviews safely using JSON escaping."""
     import json
-    css = css_vars(palette_for(theme))
+    p = palette_for(theme)
+    css = css_vars(p)
+    # Include background pattern CSS so pattern changes apply instantly
+    pattern = get_background_pattern()
+    pattern_css = get_pattern_css(p, pattern)
+    full_css = css + pattern_css
     # Use JSON encoding for safe JavaScript string escaping
-    css_json = json.dumps(css)
+    css_json = json.dumps(full_css)
     style_id_json = json.dumps(_STYLE_ID)
     return (
         "(function(){"
@@ -2650,7 +2656,7 @@ def save_animation_settings(settings: dict):
 def get_background_pattern() -> str:
     """Get background pattern setting."""
     cfg = get_config()
-    return cfg.get("backgroundPattern", "none")  # none, dots, grid, lines, subtle
+    return cfg.get("backgroundPattern", "none")  # none, dots, grid, lines, subtle, diagonal, crosshatch, paper, linen, diamond, waves
 
 def set_background_pattern(pattern: str):
     """Set background pattern."""
@@ -2660,11 +2666,44 @@ def set_background_pattern(pattern: str):
     apply_theme_everywhere(get_active_theme())
     tooltip(f"Background pattern: {pattern}")
 
+def _get_texture_color(p: dict) -> str:
+    """Compute a texture color guaranteed to contrast with the theme background.
+
+    Mixes the theme's border color 50 % toward the foreground color.
+    This keeps the texture harmonious with the palette while ensuring
+    visibility even when border and bg are nearly identical.
+    """
+    border, fg = p['border'], p['fg']
+    br, bgr, bb = int(border[1:3], 16), int(border[3:5], 16), int(border[5:7], 16)
+    fr, fgr, fb = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+    mr = int(br * 0.5 + fr * 0.5)
+    mg = int(bgr * 0.5 + fgr * 0.5)
+    mb = int(bb * 0.5 + fb * 0.5)
+    return f"#{mr:02X}{mg:02X}{mb:02X}"
+
+
+def _get_texture_accent(p: dict) -> str:
+    """Compute an accent-based texture color with guaranteed contrast.
+
+    Mixes the theme's accent color 60 % toward the foreground color so
+    accent-tinted blobs stay visible on every background.
+    """
+    accent, fg = p['accent'], p['fg']
+    ar, ag, ab = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
+    fr, fgr, fb = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+    mr = int(ar * 0.6 + fr * 0.4)
+    mg = int(ag * 0.6 + fgr * 0.4)
+    mb = int(ab * 0.6 + fb * 0.4)
+    return f"#{mr:02X}{mg:02X}{mb:02X}"
+
+
 def get_pattern_css(p: dict, pattern: str) -> str:
     """Generate CSS for background patterns."""
     if pattern == "none":
         return ""
-    elif pattern == "dots":
+    tc = _get_texture_color(p)
+    ta = _get_texture_accent(p)
+    if pattern == "dots":
         return f"""
         body::before {{
             content: '';
@@ -2673,7 +2712,7 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: radial-gradient(circle, {p['border']}22 1px, transparent 1px);
+            background-image: radial-gradient(circle, {tc}55 1px, transparent 1px);
             background-size: 20px 20px;
             pointer-events: none;
             z-index: -1;
@@ -2689,8 +2728,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             width: 100%;
             height: 100%;
             background-image:
-                linear-gradient(0deg, {p['border']}15 1px, transparent 1px),
-                linear-gradient(90deg, {p['border']}15 1px, transparent 1px);
+                linear-gradient(0deg, {tc}40 1px, transparent 1px),
+                linear-gradient(90deg, {tc}40 1px, transparent 1px);
             background-size: 30px 30px;
             pointer-events: none;
             z-index: -1;
@@ -2709,8 +2748,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
                 0deg,
                 transparent,
                 transparent 2px,
-                {p['border']}10 2px,
-                {p['border']}10 4px
+                {tc}35 2px,
+                {tc}35 4px
             );
             pointer-events: none;
             z-index: -1;
@@ -2725,8 +2764,146 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: radial-gradient(circle at 20% 50%, {p['accent']}08 0%, transparent 50%),
-                              radial-gradient(circle at 80% 80%, {p['accent']}08 0%, transparent 50%);
+            background-image: radial-gradient(circle at 20% 50%, {ta}25 0%, transparent 50%),
+                              radial-gradient(circle at 80% 80%, {ta}25 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "diagonal":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                {tc}38 10px,
+                {tc}38 11px
+            );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "crosshatch":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    {tc}30 10px,
+                    {tc}30 11px
+                ),
+                repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 10px,
+                    {tc}30 10px,
+                    {tc}30 11px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "paper":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(0deg, {tc}28 1px, transparent 1px),
+                linear-gradient(90deg, {tc}28 1px, transparent 1px),
+                radial-gradient(ellipse at 30% 40%, {ta}18 0%, transparent 70%),
+                radial-gradient(ellipse at 70% 60%, {tc}18 0%, transparent 70%);
+            background-size: 25px 25px, 25px 25px, 100% 100%, 100% 100%;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "linen":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    {tc}30,
+                    {tc}30 1px,
+                    transparent 1px,
+                    transparent 4px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    {tc}30,
+                    {tc}30 1px,
+                    transparent 1px,
+                    transparent 4px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "diamond":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(45deg, {tc}35 25%, transparent 25%),
+                linear-gradient(-45deg, {tc}35 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, {tc}35 75%),
+                linear-gradient(-45deg, transparent 75%, {tc}35 75%);
+            background-size: 30px 30px;
+            background-position: 0 0, 0 15px, 15px -15px, -15px 0;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "waves":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(ellipse at 0% 50%, {tc}35 0%, transparent 60%),
+                radial-gradient(ellipse at 100% 50%, {tc}35 0%, transparent 60%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 18px,
+                    {tc}28 18px,
+                    {tc}28 20px
+                );
             pointer-events: none;
             z-index: -1;
         }}
@@ -3461,50 +3638,209 @@ def show_animation_settings():
     dlg.exec()
 
 # ---------------- Visual Enhancements Dialog ----------------
+
+def _create_pattern_preview(pattern_key: str, bg_color: str, line_color: str, accent_color: str, size: int = 48) -> QPixmap:
+    """Create a small preview pixmap showing what a background pattern looks like."""
+    pixmap = QPixmap(size, size)
+    bg = QColor(bg_color)
+    line = QColor(line_color)
+    accent = QColor(accent_color)
+
+    pixmap.fill(bg)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+    if pattern_key == "none":
+        # Just the solid background — already filled
+        pass
+
+    elif pattern_key == "dots":
+        line.setAlpha(85)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(line))
+        for x in range(4, size, 8):
+            for y in range(4, size, 8):
+                painter.drawEllipse(x - 1, y - 1, 2, 2)
+
+    elif pattern_key == "grid":
+        line.setAlpha(64)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for x in range(0, size, 10):
+            painter.drawLine(x, 0, x, size)
+        for y in range(0, size, 10):
+            painter.drawLine(0, y, size, y)
+
+    elif pattern_key == "lines":
+        line.setAlpha(53)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for y in range(0, size, 4):
+            painter.drawLine(0, y, size, y)
+
+    elif pattern_key == "subtle":
+        accent.setAlpha(37)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(accent))
+        painter.drawEllipse(4, 8, 24, 24)
+        painter.drawEllipse(24, 24, 20, 20)
+
+    elif pattern_key == "diagonal":
+        line.setAlpha(56)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for i in range(-size, size * 2, 8):
+            painter.drawLine(i, 0, i + size, size)
+
+    elif pattern_key == "crosshatch":
+        line.setAlpha(48)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for i in range(-size, size * 2, 8):
+            painter.drawLine(i, 0, i + size, size)
+            painter.drawLine(i + size, 0, i, size)
+
+    elif pattern_key == "paper":
+        line.setAlpha(40)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for x in range(0, size, 10):
+            painter.drawLine(x, 0, x, size)
+        for y in range(0, size, 10):
+            painter.drawLine(0, y, size, y)
+        accent.setAlpha(24)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(accent))
+        painter.drawEllipse(6, 6, 20, 20)
+        painter.drawEllipse(26, 26, 18, 18)
+
+    elif pattern_key == "linen":
+        line.setAlpha(48)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for y in range(0, size, 4):
+            painter.drawLine(0, y, size, y)
+        line.setAlpha(40)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for x in range(0, size, 4):
+            painter.drawLine(x, 0, x, size)
+
+    elif pattern_key == "diamond":
+        line.setAlpha(53)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for i in range(-size, size * 2, 12):
+            painter.drawLine(i, 0, i + size, size)
+            painter.drawLine(i + size, 0, i, size)
+
+    elif pattern_key == "waves":
+        line.setAlpha(53)
+        pen = QPen(line, 1)
+        painter.setPen(pen)
+        for y in range(4, size, 10):
+            painter.drawLine(0, y, size, y)
+        line.setAlpha(40)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QBrush(line))
+        painter.drawRect(0, 0, 8, size)
+        painter.drawRect(size - 8, 0, 8, size)
+
+    painter.end()
+    return pixmap
+
 def show_visual_enhancements_dialog():
-    """Show dialog to configure visual enhancements."""
+    """Show dialog to configure visual enhancements with pattern previews."""
     dlg = QDialog(mw)
     dlg.setWindowTitle("Visual Enhancements")
-    dlg.resize(450, 350)
+    dlg.resize(500, 580)
     layout = QVBoxLayout(dlg)
 
     # Header
     header = QLabel("<h3>Visual Enhancements</h3>")
     layout.addWidget(header)
 
+    # Get current theme palette for preview colors
+    theme = get_active_theme()
+    p = palette_for(theme)
+
     # Background pattern selection
-    pattern_group = QVBoxLayout()
-    pattern_group.addWidget(QLabel("Background Pattern:"))
+    pattern_label = QLabel("<b>Background Texture:</b>")
+    layout.addWidget(pattern_label)
+
+    # Scrollable area for the pattern list
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    pattern_group = QVBoxLayout(scroll_widget)
+    pattern_group.setContentsMargins(4, 4, 4, 4)
 
     current_pattern = get_background_pattern()
     pattern_bg = QButtonGroup(dlg)
 
     patterns = [
-        ("none", "None (Solid)"),
-        ("subtle", "Subtle Gradient"),
-        ("dots", "Dots"),
-        ("grid", "Grid"),
-        ("lines", "Horizontal Lines")
+        ("none", "None (Solid)", "No texture — just a flat solid color background"),
+        ("subtle", "Subtle Gradient", "Soft color blobs in the background"),
+        ("dots", "Dots", "Small repeating dots across the background"),
+        ("grid", "Grid", "Light grid lines forming small squares"),
+        ("lines", "Horizontal Lines", "Thin horizontal ruled lines"),
+        ("diagonal", "Diagonal Lines", "Lines tilted at 45°"),
+        ("crosshatch", "Crosshatch", "Crisscrossing diagonal lines"),
+        ("paper", "Paper", "Faint grid with subtle color wash"),
+        ("linen", "Linen", "Tight woven fabric-like texture"),
+        ("diamond", "Diamond", "Repeating diamond / argyle shapes"),
+        ("waves", "Waves", "Horizontal bands with soft edges"),
     ]
 
-    for value, label in patterns:
+    for value, label, desc in patterns:
+        row = QHBoxLayout()
+        row.setContentsMargins(2, 2, 2, 2)
+
+        # Preview square
+        preview = QLabel()
+        pix = _create_pattern_preview(value, p['bg'], _get_texture_color(p), _get_texture_accent(p), 48)
+        preview.setPixmap(pix)
+        preview.setFixedSize(52, 52)
+        preview.setStyleSheet(
+            f"border: 1px solid {p['border']}; border-radius: 4px; padding: 1px;"
+        )
+        row.addWidget(preview)
+
+        # Radio + description
+        text_col = QVBoxLayout()
+        text_col.setContentsMargins(4, 0, 0, 0)
+        text_col.setSpacing(0)
         rb = QRadioButton(label)
         rb.setChecked(current_pattern == value)
         rb.setProperty("pattern_value", value)
         pattern_bg.addButton(rb)
-        pattern_group.addWidget(rb)
+        text_col.addWidget(rb)
 
-    layout.addLayout(pattern_group)
+        desc_label = QLabel(f"<span style='color:gray; font-size:10px;'>{desc}</span>")
+        text_col.addWidget(desc_label)
+        row.addLayout(text_col)
+        row.addStretch()
+
+        row_widget = QWidget()
+        row_widget.setLayout(row)
+        pattern_group.addWidget(row_widget)
+
+    pattern_group.addStretch()
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
 
     # Info text
-    info = QLabel("Background patterns add subtle visual texture to your themes without affecting readability.")
+    info = QLabel(
+        "💡 <b>Where do textures appear?</b> Textures are visible on <b>all Anki screens</b>: "
+        "the deck list, reviewer, card editor, and browser. They overlay on top of your current "
+        "theme color. All textures are pure CSS — no images needed."
+    )
     info.setWordWrap(True)
-    info.setStyleSheet("color: gray; font-size: 11px; padding: 10px;")
+    info.setStyleSheet("color: gray; font-size: 11px; padding: 8px; background: palette(base); border-radius: 4px;")
     layout.addWidget(info)
 
-    layout.addStretch()
-
     # Buttons
+    btn_row = QHBoxLayout()
     def save_settings():
         for button in pattern_bg.buttons():
             if button.isChecked():
@@ -3515,11 +3851,12 @@ def show_visual_enhancements_dialog():
 
     save_btn = QPushButton("Apply")
     save_btn.clicked.connect(save_settings)
-    layout.addWidget(save_btn)
+    btn_row.addWidget(save_btn)
 
     cancel_btn = QPushButton("Cancel")
     cancel_btn.clicked.connect(dlg.reject)
-    layout.addWidget(cancel_btn)
+    btn_row.addWidget(cancel_btn)
+    layout.addLayout(btn_row)
 
     dlg.exec()
 
