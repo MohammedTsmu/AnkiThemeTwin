@@ -271,6 +271,7 @@ def css_vars(p):
         f"  --border-focus: {p['accent']} !important;"
         f"  --button-bg: {p['button']} !important;"
         f"  --button-hover: {p['hover']} !important;"
+        f"  --button-hover-border: {p['accent']} !important;"
         f"  --button-active: {p['selection']} !important;"
         f"  --button-disabled: {p['border']} !important;"
         f"  --button-gradient-start: {p['button']} !important;"
@@ -295,6 +296,16 @@ def css_vars(p):
         f"  --frame-bg: {p['input']} !important;"
         f"  --window-bg: {p['bg']} !important;"
         f"  --window-fg: {p['fg']} !important;"
+        # Additional properties used by Anki's editor/browser Svelte components
+        f"  --pane-bg: {p['bg']} !important;"
+        f"  --surface-bg: {p['bg']} !important;"
+        f"  --flag-1: #E74C3C !important;"
+        f"  --flag-2: #E67E22 !important;"
+        f"  --flag-3: #2ECC71 !important;"
+        f"  --flag-4: #3498DB !important;"
+        f"  --flag-5: #FF69B4 !important;"
+        f"  --flag-6: #40E0D0 !important;"
+        f"  --flag-7: #9B59B6 !important;"
         "}"
         # Override nightMode/night_mode body classes that Anki applies in dark mode
         # This ensures our theme colors win even when OS is in dark mode
@@ -601,21 +612,43 @@ def inject_css(web_content, ctx):
     # Browser - card browser
     elif "Browser" in ctx_name:
         context_css += f"""
-        /* Browser specific */
+        /* Browser specific webview styling */
         .browser-table {{ background:{p['bg']} !important; }}
         .search {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         .cell {{ color:{p['fg']} !important; }}
         .browserRow {{ background:{p['bg']} !important; }}
         .browserRow:hover {{ background:{p['hover']} !important; }}
-        /* Browser sidebar */
+        /* Browser sidebar webview elements */
         .sidebar {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
         .sidebar-item {{ color:{p['fg']} !important; padding:4px 8px; }}
         .sidebar-item:hover {{ background:{p['hover']} !important; }}
-        .sidebar-item.selected {{ background:{p['selection']} !important; }}
+        .sidebar-item.selected, .sidebar-item.highlighted {{ background:{p['selection']} !important; color:{p['fg']} !important; }}
         /* Browser toolbar */
         #searchEdit {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
-        /* Card preview in browser */
+        /* Card preview/details in browser right panel */
         #previewArea {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Editor fields/labels on right side of browser */
+        .fname {{ color:{p['muted']} !important; font-size:12px; }}
+        .field {{ min-height:40px !important; background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .EditorField {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .editor-field {{ background:{p['input']} !important; border:1px solid {p['border']} !important; border-radius:4px; color:{p['inputText']} !important; }}
+        .editor-field:focus-within {{ border-color:{p['accent']} !important; }}
+        .editor-toolbar {{ background:{p['bg']} !important; border-bottom:1px solid {p['border']} !important; }}
+        .editor-toolbar button {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}
+        .editor-toolbar button:hover {{ background:{p['hover']} !important; }}
+        .label-name, .field-label, [class*="label"] {{ color:{p['muted']} !important; }}
+        .collapse-icon {{ color:{p['muted']} !important; }}
+        .fields-collapse {{ background:{p['bg']} !important; }}
+        /* Tag editor in browser */
+        .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
+        .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
+        .tag-editor .tag-chip, .tag-pill {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; border-radius:3px; }}
+        .tag-editor .tag-chip:hover, .tag-pill:hover {{ background:{p['hover']} !important; }}
+        /* Note type/deck selectors in browser editor */
+        .note-type-selector, .deck-selector {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .note-type-selector:hover, .deck-selector:hover {{ background:{p['hover']} !important; }}
+        .plain-text-badge {{ background:{p['button']} !important; color:{p['muted']} !important; border:1px solid {p['border']} !important; }}
+        .plain-text-badge:hover {{ background:{p['hover']} !important; }}
         /* Suspended and marked cards */
         .suspended {{ color:{p['muted']} !important; opacity:0.7; }}
         .marked {{ color:{p['accent']} !important; }}
@@ -623,6 +656,18 @@ def inject_css(web_content, ctx):
         th.browser-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
         /* Filter bar */
         .filterBar {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; padding:8px; }}
+        /* Pane/panel backgrounds for card details */
+        .pane {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        [class*="pane"] {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Rich text buttons in browser editor */
+        .richTextButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .richTextButton:hover {{ background:{p['hover']} !important; }}
+        .richTextButton.highlighted {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Svelte component overrides */
+        .tag {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}
+        .fieldButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        #notetype {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        #deck {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         """
 
     # Toolbar and bottom bars
@@ -638,8 +683,9 @@ def inject_css(web_content, ctx):
     # Inject into page
     web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
 
-    # For Editor contexts, inject JavaScript to style Shadow DOM elements
-    if "Editor" in ctx_name or "AddCards" in ctx_name:
+    # For Editor/AddCards/Browser contexts, inject JavaScript to style Shadow DOM elements
+    # (Browser has an editor panel on the right side with shadow DOM fields)
+    if "Editor" in ctx_name or "AddCards" in ctx_name or "Browser" in ctx_name or "NoteEditor" in ctx_name:
         shadow_css_content = (
             f":host {{ background:{p['input']} !important; "
             f"color:{p['inputText']} !important; "
@@ -1178,16 +1224,17 @@ def on_theme_did_change():
         QTimer.singleShot(2000, lambda: setattr(mw, "_ankitwin_theme_changing", False))
 
 # ---------------- Browser-specific Qt widget theming ----------------
-def on_browser_will_show(browser):
-    """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter)."""
-    if is_follow_system_theme():
-        return
-    theme = get_active_theme()
-    p = palette_for(theme)
+def _style_qt_children(parent_widget, p: dict):
+    """Apply QSS directly to individual child widgets.
 
-    # Build Browser-specific QSS for native Qt widgets
-    browser_qss = f"""
-    /* Browser sidebar (QTreeView) */
+    Qt6 does NOT reliably cascade parent QSS to children when Anki's own
+    ThemeManager applies styles after our hook. The only reliable way is
+    to find each child widget and set its stylesheet directly.
+    """
+    from aqt.qt import QTreeView, QTableView, QHeaderView
+
+    # Style all QTreeView widgets (sidebar)
+    tree_qss = f"""
     QTreeView {{
         background:{p['bg']};
         color:{p['fg']};
@@ -1202,6 +1249,7 @@ def on_browser_will_show(browser):
     }}
     QTreeView::item:hover {{
         background:{p['hover']};
+        color:{p['fg']};
     }}
     QTreeView::item:selected {{
         background:{p['selection']};
@@ -1216,22 +1264,25 @@ def on_browser_will_show(browser):
     QTreeView::branch:selected {{
         background:{p['selection']};
     }}
+    """
+    for w in parent_widget.findChildren(QTreeView):
+        try:
+            w.setStyleSheet(tree_qss)
+            # Also force palette on the widget for Qt6 robustness
+            pal = w.palette()
+            pal.setColor(QPalette.ColorRole.Base, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.Text, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.Window, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.WindowText, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
+            pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['input']))
+            w.setPalette(pal)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Sidebar filter input (QLineEdit at top of sidebar) */
-    QLineEdit {{
-        background:{p['input']};
-        color:{p['inputText']};
-        border:1px solid {p['border']};
-        border-radius:3px;
-        padding:4px 8px;
-        selection-background-color:{p['selection']};
-        selection-color:{p['fg']};
-    }}
-    QLineEdit:focus {{
-        border:2px solid {p['accent']};
-    }}
-
-    /* Card list table (QTableView) */
+    # Style all QTableView widgets (card list)
+    table_qss = f"""
     QTableView {{
         background:{p['bg']};
         color:{p['fg']};
@@ -1247,13 +1298,29 @@ def on_browser_will_show(browser):
     }}
     QTableView::item:hover {{
         background:{p['hover']};
+        color:{p['fg']};
     }}
     QTableView::item:selected {{
         background:{p['selection']};
         color:{p['fg']};
     }}
+    """
+    for w in parent_widget.findChildren(QTableView):
+        try:
+            w.setStyleSheet(table_qss)
+            pal = w.palette()
+            pal.setColor(QPalette.ColorRole.Base, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.Text, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['input']))
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
+            pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
+            w.setPalette(pal)
+            w.setAlternatingRowColors(True)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Column headers */
+    # Style all QHeaderView sections (column headers)
+    header_qss = f"""
     QHeaderView::section {{
         background:{p['button']};
         color:{p['buttonText']};
@@ -1264,41 +1331,70 @@ def on_browser_will_show(browser):
     QHeaderView::section:hover {{
         background:{p['hover']};
     }}
+    """
+    for w in parent_widget.findChildren(QHeaderView):
+        try:
+            w.setStyleSheet(header_qss)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Splitter between sidebar and table */
-    QSplitter::handle {{
-        background:{p['border']};
-    }}
-    QSplitter::handle:hover {{
-        background:{p['muted']};
-    }}
-
-    /* Search bar area */
-    QToolBar {{
-        background:{p['bg']};
+    # Style all QLineEdit (filter bar, search bar)
+    line_edit_qss = f"""
+    QLineEdit {{
+        background:{p['input']};
+        color:{p['inputText']};
         border:1px solid {p['border']};
+        border-radius:3px;
+        padding:4px 8px;
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
     }}
+    QLineEdit:focus {{
+        border:2px solid {p['accent']};
+    }}
+    """
+    for w in parent_widget.findChildren(QLineEdit):
+        try:
+            w.setStyleSheet(line_edit_qss)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Browser buttons */
+    # Style all QPushButton
+    button_qss = f"""
     QPushButton {{
         background:{p['button']};
         color:{p['buttonText']};
         border:1px solid {p['border']};
         border-radius:4px;
         padding:6px 12px;
+        min-height:24px;
     }}
     QPushButton:hover {{
         background:{p['hover']};
         border-color:{p['accent']};
     }}
+    QPushButton:pressed {{
+        background:{p['selection']};
+    }}
+    """
+    for w in parent_widget.findChildren(QPushButton):
+        try:
+            w.setStyleSheet(button_qss)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Combo boxes in browser */
+    # Style all QComboBox
+    combo_qss = f"""
     QComboBox {{
         background:{p['input']};
         color:{p['inputText']};
         border:1px solid {p['border']};
         border-radius:3px;
         padding:4px 8px;
+    }}
+    QComboBox::drop-down {{
+        border:none;
+        width:20px;
     }}
     QComboBox QAbstractItemView {{
         background:{p['input']};
@@ -1307,23 +1403,70 @@ def on_browser_will_show(browser):
         selection-color:{p['fg']};
         border:1px solid {p['border']};
     }}
+    """
+    for w in parent_widget.findChildren(QComboBox):
+        try:
+            w.setStyleSheet(combo_qss)
+        except (RuntimeError, AttributeError):
+            pass
 
-    /* Labels in browser */
-    QLabel {{
-        color:{p['fg']};
-        background:transparent;
+    # Style all QLabel (make text visible)
+    for w in parent_widget.findChildren(QLabel):
+        try:
+            w.setStyleSheet(f"QLabel {{ color:{p['fg']}; background:transparent; }}")
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QFrame (containers)
+    for w in parent_widget.findChildren(QFrame):
+        try:
+            # Don't override webview containers - only plain QFrames
+            cls_name = w.__class__.__name__
+            if cls_name in ("QFrame", "QWidget"):
+                w.setStyleSheet(f"background:{p['bg']}; color:{p['fg']};")
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QCheckBox
+    for w in parent_widget.findChildren(QCheckBox):
+        try:
+            w.setStyleSheet(f"""
+            QCheckBox {{ color:{p['fg']}; spacing:8px; }}
+            QCheckBox::indicator {{ width:18px; height:18px; border:1px solid {p['border']}; background:{p['input']}; }}
+            QCheckBox::indicator:checked {{ background:{p['accent']}; border-color:{p['accent']}; }}
+            """)
+        except (RuntimeError, AttributeError):
+            pass
+
+
+def on_browser_will_show(browser):
+    """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter).
+
+    Uses two strategies for Qt6 reliability:
+    1. Set QSS on the parent Browser window (cascading)
+    2. Find and style each child widget DIRECTLY (overrides Anki's own styles)
+    """
+    if is_follow_system_theme():
+        return
+    theme = get_active_theme()
+    p = palette_for(theme)
+
+    # Strategy 1: Parent-level QSS for general styling and any widgets
+    # not caught by direct child styling
+    browser_qss = f"""
+    /* Splitter between sidebar and table */
+    QSplitter::handle {{
+        background:{p['border']};
     }}
-
-    /* General background for the Browser window frame (not webviews) */
-    QSplitter > QWidget {{
+    QSplitter::handle:hover {{
+        background:{p['muted']};
+    }}
+    /* Search bar area */
+    QToolBar {{
         background:{p['bg']};
-        color:{p['fg']};
+        border:1px solid {p['border']};
     }}
     QToolBar > QWidget {{
-        background:{p['bg']};
-        color:{p['fg']};
-    }}
-    QFrame {{
         background:{p['bg']};
         color:{p['fg']};
     }}
@@ -1331,12 +1474,14 @@ def on_browser_will_show(browser):
         background:{p['bg']};
         color:{p['fg']};
     }}
+    QMenuBar::item:selected {{
+        background:{p['hover']};
+    }}
     QStatusBar {{
         background:{p['bg']};
         color:{p['muted']};
     }}
-
-    /* Scrollbars in browser */
+    /* Scrollbars */
     QScrollBar:vertical {{
         background:{p['bg']};
         width:12px;
@@ -1367,8 +1512,7 @@ def on_browser_will_show(browser):
         border:none;
         background:none;
     }}
-
-    /* Tab bar in browser (if applicable) */
+    /* Tab bar */
     QTabBar::tab {{
         background:{p['button']};
         color:{p['buttonText']};
@@ -1388,6 +1532,9 @@ def on_browser_will_show(browser):
         browser.setStyleSheet(browser_qss)
     except (RuntimeError, AttributeError):
         pass
+
+    # Strategy 2: Direct child widget styling (most reliable in Qt6)
+    _style_qt_children(browser, p)
 
 # ---------------- Shadow DOM refresh for editor ----------------
 def _build_shadow_dom_js(theme: Theme) -> str:
@@ -1534,6 +1681,8 @@ def refresh_all_webviews():
                 for wv in widget.findChildren(QWebEngineView):
                     try:
                         wv.page().runJavaScript(js)
+                        # Also inject shadow DOM styles into all browser webviews
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 200);")
                     except (RuntimeError, AttributeError):
                         pass
             except (ImportError, RuntimeError, AttributeError):
@@ -1545,6 +1694,10 @@ def refresh_all_webviews():
             widget.setStyleSheet(qss(p))
         except (RuntimeError, AttributeError):
             pass
+
+        # Also style child widgets directly for Qt6 reliability
+        # (ensures AddCards, EditCurrent, etc. have styled buttons/inputs)
+        _style_qt_children(widget, p)
 
         # Find any webview (QWebEngineView) inside the widget and eval our CSS
         try:
