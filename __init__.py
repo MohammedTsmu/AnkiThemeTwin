@@ -2650,7 +2650,7 @@ def save_animation_settings(settings: dict):
 def get_background_pattern() -> str:
     """Get background pattern setting."""
     cfg = get_config()
-    return cfg.get("backgroundPattern", "none")  # none, dots, grid, lines, subtle
+    return cfg.get("backgroundPattern", "none")  # none, dots, grid, lines, subtle, diagonal, crosshatch, paper, linen, diamond, waves
 
 def set_background_pattern(pattern: str):
     """Set background pattern."""
@@ -2727,6 +2727,144 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             height: 100%;
             background-image: radial-gradient(circle at 20% 50%, {p['accent']}08 0%, transparent 50%),
                               radial-gradient(circle at 80% 80%, {p['accent']}08 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "diagonal":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                {p['border']}12 10px,
+                {p['border']}12 11px
+            );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "crosshatch":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    {p['border']}10 10px,
+                    {p['border']}10 11px
+                ),
+                repeating-linear-gradient(
+                    -45deg,
+                    transparent,
+                    transparent 10px,
+                    {p['border']}10 10px,
+                    {p['border']}10 11px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "paper":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(0deg, {p['border']}08 1px, transparent 1px),
+                linear-gradient(90deg, {p['border']}08 1px, transparent 1px),
+                radial-gradient(ellipse at 30% 40%, {p['accent']}06 0%, transparent 70%),
+                radial-gradient(ellipse at 70% 60%, {p['border']}06 0%, transparent 70%);
+            background-size: 25px 25px, 25px 25px, 100% 100%, 100% 100%;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "linen":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    {p['border']}0A,
+                    {p['border']}0A 1px,
+                    transparent 1px,
+                    transparent 4px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    {p['border']}08,
+                    {p['border']}08 1px,
+                    transparent 1px,
+                    transparent 4px
+                );
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "diamond":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(45deg, {p['border']}10 25%, transparent 25%),
+                linear-gradient(-45deg, {p['border']}10 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, {p['border']}10 75%),
+                linear-gradient(-45deg, transparent 75%, {p['border']}10 75%);
+            background-size: 30px 30px;
+            background-position: 0 0, 0 15px, 15px -15px, -15px 0;
+            pointer-events: none;
+            z-index: -1;
+        }}
+        """
+    elif pattern == "waves":
+        return f"""
+        body::before {{
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                radial-gradient(ellipse at 0% 50%, {p['border']}12 0px, transparent 60%),
+                radial-gradient(ellipse at 100% 50%, {p['border']}12 0px, transparent 60%),
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 18px,
+                    {p['border']}0A 18px,
+                    {p['border']}0A 20px
+                );
             pointer-events: none;
             z-index: -1;
         }}
@@ -3465,7 +3603,7 @@ def show_visual_enhancements_dialog():
     """Show dialog to configure visual enhancements."""
     dlg = QDialog(mw)
     dlg.setWindowTitle("Visual Enhancements")
-    dlg.resize(450, 350)
+    dlg.resize(450, 500)
     layout = QVBoxLayout(dlg)
 
     # Header
@@ -3484,7 +3622,13 @@ def show_visual_enhancements_dialog():
         ("subtle", "Subtle Gradient"),
         ("dots", "Dots"),
         ("grid", "Grid"),
-        ("lines", "Horizontal Lines")
+        ("lines", "Horizontal Lines"),
+        ("diagonal", "Diagonal Lines"),
+        ("crosshatch", "Crosshatch"),
+        ("paper", "Paper"),
+        ("linen", "Linen"),
+        ("diamond", "Diamond"),
+        ("waves", "Waves"),
     ]
 
     for value, label in patterns:
@@ -3497,7 +3641,7 @@ def show_visual_enhancements_dialog():
     layout.addLayout(pattern_group)
 
     # Info text
-    info = QLabel("Background patterns add subtle visual texture to your themes without affecting readability.")
+    info = QLabel("Background patterns add subtle visual texture to your themes without affecting readability. All textures are pure CSS — no external images needed.")
     info.setWordWrap(True)
     info.setStyleSheet("color: gray; font-size: 11px; padding: 10px;")
     layout.addWidget(info)

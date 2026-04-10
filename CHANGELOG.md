@@ -4,7 +4,13 @@ All notable changes to AnkiThemeTwin will be documented in this file.
 
 ## [1.6.0] - 2026-04-10
 
-### Added - 15 New Features
+### Added - 15 New Features + Background Textures
+
+#### Background Textures (Visual Enhancements)
+- Added 6 new CSS-only background textures: Diagonal Lines, Crosshatch, Paper, Linen, Diamond, Waves
+- All textures are subtle, study-friendly, and use no external images
+- Accessible via Tools > Theme: AnkiThemeTwin > Visual Enhancements
+- Extends existing patterns (Dots, Grid, Horizontal Lines, Subtle Gradient)
 
 #### Feature 1: Pomodoro / Break Reminder
 - Configurable study timer with break reminders
