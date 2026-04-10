@@ -1,4 +1,4 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.5.2
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.6.0
 # Enhanced theming with keyboard shortcuts, more font sizes, theme presets, and custom theme creator
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
@@ -9,15 +9,17 @@ from aqt.qt import (
     QSlider, QColorDialog, QLineEdit, QSpinBox, QScrollArea,
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
     QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
-    QRadioButton, QPalette, QColor,
+    QRadioButton, QPalette, QColor, QTimer,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
 import json
 import os
+import random
+import math
 from datetime import datetime, time
 
-VERSION = "1.5.2"
+VERSION = "1.6.0"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
@@ -230,6 +232,510 @@ def get_letter_spacing() -> float:
     cfg = get_config()
     return cfg.get("letterSpacing", 0.0)
 
+# ====== Feature 1: Pomodoro / Break Reminder ======
+def get_pomodoro_settings() -> dict:
+    """Get Pomodoro timer settings."""
+    cfg = get_config()
+    return cfg.get("pomodoroSettings", {
+        "enabled": False,
+        "studyMinutes": 25,
+        "breakMinutes": 5,
+        "autoStart": False,
+    })
+
+def save_pomodoro_settings(settings: dict):
+    """Save Pomodoro timer settings."""
+    cfg = get_config()
+    cfg["pomodoroSettings"] = settings
+    write_config(cfg)
+
+def _start_pomodoro_timer():
+    """Start (or restart) the Pomodoro study timer."""
+    settings = get_pomodoro_settings()
+    if not settings.get("enabled"):
+        return
+    study_ms = settings.get("studyMinutes", 25) * 60 * 1000
+    if not hasattr(mw, "_ankitwin_pomodoro_timer"):
+        mw._ankitwin_pomodoro_timer = QTimer(mw)
+        mw._ankitwin_pomodoro_timer.setSingleShot(True)
+        mw._ankitwin_pomodoro_timer.timeout.connect(_show_break_reminder)
+    mw._ankitwin_pomodoro_timer.start(study_ms)
+    mw._ankitwin_pomodoro_studying = True
+
+def _stop_pomodoro_timer():
+    """Stop the Pomodoro timer."""
+    if hasattr(mw, "_ankitwin_pomodoro_timer"):
+        mw._ankitwin_pomodoro_timer.stop()
+    mw._ankitwin_pomodoro_studying = False
+
+def _show_break_reminder():
+    """Show a break reminder dialog."""
+    settings = get_pomodoro_settings()
+    break_min = settings.get("breakMinutes", 5)
+    theme = get_active_theme()
+    p = palette_for(theme)
+
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Break Time!")
+    dlg.resize(400, 250)
+    layout = QVBoxLayout(dlg)
+    dlg.setStyleSheet(f"background:{p['bg']}; color:{p['fg']};")
+
+    icon_lbl = QLabel("☕")
+    icon_lbl.setStyleSheet("font-size:48px;")
+    icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(icon_lbl)
+
+    msg = QLabel(
+        f"<div style='text-align:center;font-size:16px;'>"
+        f"<b>Time for a {break_min}-minute break!</b><br><br>"
+        f"Rest your eyes, stretch, and hydrate.<br>"
+        f"Your study session will continue after.</div>"
+    )
+    msg.setWordWrap(True)
+    layout.addWidget(msg)
+
+    def end_break():
+        dlg.accept()
+        if settings.get("autoStart", False):
+            _start_pomodoro_timer()
+            tooltip("⏱️ Pomodoro: New study session started!", period=2000)
+
+    btn = QPushButton(f"I'm Back! (Start Next Session)")
+    btn.clicked.connect(end_break)
+    layout.addWidget(btn)
+
+    skip_btn = QPushButton("Skip (Don't Restart Timer)")
+    skip_btn.clicked.connect(dlg.accept)
+    layout.addWidget(skip_btn)
+
+    dlg.exec()
+
+# ====== Feature 2: Blue Light Filter ======
+def get_blue_light_filter() -> int:
+    """Get blue light filter intensity (0-100)."""
+    cfg = get_config()
+    return max(0, min(100, cfg.get("blueLightFilter", 0)))
+
+def set_blue_light_filter(value: int):
+    """Set blue light filter intensity (0-100)."""
+    cfg = get_config()
+    cfg["blueLightFilter"] = max(0, min(100, value))
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+
+def _get_blue_light_filter_css() -> str:
+    """Generate CSS for the blue light filter overlay."""
+    intensity = get_blue_light_filter()
+    if intensity <= 0:
+        return ""
+    # Scale opacity from 0.0 to 0.35 based on 0-100 slider
+    opacity = intensity / 100.0 * 0.35
+    return (
+        "#ankithemetwin-bluelight-overlay {"
+        "  position:fixed; top:0; left:0; width:100%; height:100%;"
+        f"  background:rgba(255, 180, 50, {opacity});"
+        "  pointer-events:none; z-index:99999; mix-blend-mode:multiply;"
+        "}"
+    )
+
+# ====== Feature 3: Theme Sync via collection.media ======
+_SYNC_FILENAME = "_ankithemetwin_sync.json"
+
+def get_sync_enabled() -> bool:
+    """Check if theme sync is enabled."""
+    cfg = get_config()
+    return cfg.get("syncEnabled", False)
+
+def _get_sync_file_path() -> Optional[str]:
+    """Get path to sync file in collection.media."""
+    try:
+        media_dir = mw.col.media.dir()
+        return os.path.join(media_dir, _SYNC_FILENAME)
+    except (AttributeError, Exception):
+        return None
+
+def sync_config_to_media():
+    """Write current config to collection.media for AnkiWeb sync."""
+    if not get_sync_enabled():
+        return
+    path = _get_sync_file_path()
+    if not path:
+        return
+    try:
+        cfg = get_config()
+        sync_data = {
+            "version": VERSION,
+            "synced_at": datetime.now().isoformat(),
+            "configuration": cfg,
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(sync_data, f, indent=2)
+    except (OSError, IOError):
+        pass
+
+def sync_config_from_media():
+    """Import config from collection.media if newer than current."""
+    if not get_sync_enabled():
+        return
+    path = _get_sync_file_path()
+    if not path or not os.path.exists(path):
+        return
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            sync_data = json.load(f)
+        synced_cfg = sync_data.get("configuration", {})
+        if synced_cfg:
+            for key, value in synced_cfg.items():
+                current_cfg = get_config()
+                current_cfg[key] = value
+                write_config(current_cfg)
+            # Reload custom themes
+            custom_themes = get_custom_themes()
+            for name, palette in custom_themes.items():
+                PALETTES[name] = palette
+            tooltip("🔄 Settings synced from another device!", period=2000)
+    except (OSError, IOError, json.JSONDecodeError):
+        pass
+
+# ====== Feature 4: Note-Type Specific Styling ======
+def get_note_type_styles() -> dict:
+    """Get per-note-type styling overrides."""
+    cfg = get_config()
+    return cfg.get("noteTypeStyles", {})
+
+def set_note_type_style(note_type: str, styles: dict):
+    """Set styling overrides for a specific note type."""
+    cfg = get_config()
+    nts = get_note_type_styles()
+    nts[note_type] = styles
+    cfg["noteTypeStyles"] = nts
+    write_config(cfg)
+    tooltip(f"Style for '{note_type}' saved!")
+
+def delete_note_type_style(note_type: str):
+    """Remove styling overrides for a note type."""
+    cfg = get_config()
+    nts = get_note_type_styles()
+    if note_type in nts:
+        del nts[note_type]
+        cfg["noteTypeStyles"] = nts
+        write_config(cfg)
+
+def _get_note_type_css(note_type_name: str) -> str:
+    """Generate CSS overrides for a specific note type."""
+    styles = get_note_type_styles()
+    if note_type_name not in styles:
+        return ""
+    s = styles[note_type_name]
+    css = ""
+    if "fontSize" in s:
+        css += f".card {{ font-size:{s['fontSize']}px !important; }}"
+    if "fontFamily" in s:
+        css += f".card {{ font-family:{s['fontFamily']} !important; }}"
+    if "lineHeight" in s:
+        css += f".card {{ line-height:{s['lineHeight']} !important; }}"
+    if "theme" in s and s["theme"] in PALETTES:
+        p = PALETTES[s["theme"]]
+        css += (
+            f".card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}"
+        )
+    return css
+
+# ====== Feature 5: Zen Mode ======
+def get_zen_mode() -> bool:
+    """Get zen mode state."""
+    cfg = get_config()
+    return cfg.get("zenMode", False)
+
+def toggle_zen_mode():
+    """Toggle zen mode on/off."""
+    cfg = get_config()
+    new_state = not cfg.get("zenMode", False)
+    cfg["zenMode"] = new_state
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+    if new_state:
+        tooltip("🧘 Zen Mode enabled — distraction-free review", period=2000)
+    else:
+        tooltip("🧘 Zen Mode disabled", period=2000)
+
+def _get_zen_mode_css() -> str:
+    """CSS to hide UI elements for zen mode."""
+    return (
+        "/* Zen Mode: hide distracting elements */"
+        "#header, .header, .toolbar, .deck-info, .deckname, nav,"
+        "#studycount, #cardcount, .stat, .stattxt {"
+        "  display:none !important;"
+        "}"
+        ".card, .card1, .card2, .card3 {"
+        "  max-width:800px; margin:40px auto !important;"
+        "  padding:40px !important; min-height:60vh;"
+        "}"
+        "#qa { max-width:800px; margin:0 auto; padding:20px; }"
+        "body { display:flex; flex-direction:column;"
+        "  justify-content:center; min-height:100vh; }"
+    )
+
+# ====== Feature 6: Theme Rotation ======
+def get_rotation_settings() -> dict:
+    """Get theme rotation settings."""
+    cfg = get_config()
+    return cfg.get("themeRotation", {
+        "enabled": False,
+        "themes": [],
+        "intervalCards": 10,
+        "intervalMinutes": 0,
+    })
+
+def save_rotation_settings(settings: dict):
+    """Save theme rotation settings."""
+    cfg = get_config()
+    cfg["themeRotation"] = settings
+    write_config(cfg)
+
+def _check_theme_rotation():
+    """Check if it's time to rotate the theme (card-based)."""
+    settings = get_rotation_settings()
+    if not settings.get("enabled") or not settings.get("themes"):
+        return
+    interval = settings.get("intervalCards", 10)
+    if interval <= 0:
+        return
+    count = getattr(mw, "_ankitwin_rotation_count", 0) + 1
+    mw._ankitwin_rotation_count = count
+    if count >= interval:
+        mw._ankitwin_rotation_count = 0
+        themes = settings["themes"]
+        # Filter to valid themes
+        valid = [t for t in themes if t in PALETTES]
+        if valid:
+            current = get_active_theme()
+            choices = [t for t in valid if t != current] or valid
+            new_theme = random.choice(choices)
+            set_theme(new_theme)
+            tooltip(f"🔄 Theme rotated to {new_theme.replace('_', ' ').title()}", period=1500)
+
+def _start_rotation_timer():
+    """Start timer-based theme rotation if configured."""
+    settings = get_rotation_settings()
+    if not settings.get("enabled"):
+        return
+    minutes = settings.get("intervalMinutes", 0)
+    if minutes <= 0:
+        return
+    if not hasattr(mw, "_ankitwin_rotation_timer"):
+        mw._ankitwin_rotation_timer = QTimer(mw)
+        mw._ankitwin_rotation_timer.timeout.connect(_rotate_theme_by_timer)
+    mw._ankitwin_rotation_timer.start(minutes * 60 * 1000)
+
+def _rotate_theme_by_timer():
+    """Rotate theme on timer interval."""
+    settings = get_rotation_settings()
+    if not settings.get("enabled") or not settings.get("themes"):
+        return
+    valid = [t for t in settings["themes"] if t in PALETTES]
+    if valid:
+        current = get_active_theme()
+        choices = [t for t in valid if t != current] or valid
+        new_theme = random.choice(choices)
+        set_theme(new_theme)
+        tooltip(f"🔄 Theme rotated to {new_theme.replace('_', ' ').title()}", period=1500)
+
+# ====== Feature 7: Custom CSS Injection ======
+def get_custom_css() -> str:
+    """Get user's custom CSS string."""
+    cfg = get_config()
+    return cfg.get("customCSS", "")
+
+def set_custom_css(css: str):
+    """Set user's custom CSS."""
+    cfg = get_config()
+    cfg["customCSS"] = css
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+
+# ====== Feature 9: Ambient Light Auto-Adjust ======
+def get_ambient_light_settings() -> dict:
+    """Get ambient light auto-adjust settings."""
+    cfg = get_config()
+    return cfg.get("ambientLightAuto", {
+        "enabled": False,
+        "minFilter": 0,
+        "maxFilter": 60,
+    })
+
+def save_ambient_light_settings(settings: dict):
+    """Save ambient light settings."""
+    cfg = get_config()
+    cfg["ambientLightAuto"] = settings
+    write_config(cfg)
+
+def _calculate_ambient_filter() -> int:
+    """Calculate blue light filter based on time of day (solar position estimate).
+
+    Returns a value 0-100 representing blue light filter intensity.
+    Peaks at night (around midnight), lowest at midday.
+    """
+    settings = get_ambient_light_settings()
+    if not settings.get("enabled"):
+        return get_blue_light_filter()  # Return manual setting
+
+    min_filter = settings.get("minFilter", 0)
+    max_filter = settings.get("maxFilter", 60)
+
+    now = datetime.now()
+    # Hour as fraction (0-24)
+    hour_frac = now.hour + now.minute / 60.0
+
+    # Cosine curve: peaks at midnight (hour 0/24), valley at noon (hour 12)
+    # cos(0) = 1 (midnight, max filter), cos(pi) = -1 (noon, min filter)
+    radians = (hour_frac / 24.0) * 2 * math.pi
+    factor = (math.cos(radians) + 1) / 2  # Normalized 0-1
+    filter_value = int(min_filter + factor * (max_filter - min_filter))
+    return max(0, min(100, filter_value))
+
+def _apply_ambient_light():
+    """Apply time-based blue light filter adjustment."""
+    settings = get_ambient_light_settings()
+    if not settings.get("enabled"):
+        return
+    new_filter = _calculate_ambient_filter()
+    current = get_blue_light_filter()
+    if abs(new_filter - current) >= 2:  # Only update if meaningful change
+        cfg = get_config()
+        cfg["blueLightFilter"] = new_filter
+        write_config(cfg)
+        refresh_all_webviews()
+
+# ====== Feature 12: Match Card Background ======
+def get_match_card_background() -> bool:
+    """Check if match card background is enabled."""
+    cfg = get_config()
+    return cfg.get("matchCardBackground", False)
+
+def toggle_match_card_background():
+    """Toggle match card background feature."""
+    cfg = get_config()
+    new_state = not cfg.get("matchCardBackground", False)
+    cfg["matchCardBackground"] = new_state
+    write_config(cfg)
+    apply_theme_everywhere(get_active_theme())
+    tooltip(f"Match Card Background: {'enabled' if new_state else 'disabled'}")
+
+# ====== Feature 13: Status Bar Indicator ======
+def get_status_bar_enabled() -> bool:
+    """Check if status bar indicator is enabled."""
+    cfg = get_config()
+    return cfg.get("statusBarIndicator", True)
+
+def _update_status_bar():
+    """Update the status bar with current theme info."""
+    if not get_status_bar_enabled():
+        return
+    try:
+        theme = get_active_theme()
+        theme_name = theme.replace("_", " ").title()
+        font_size = get_font_size()
+        zen = " | 🧘 Zen" if get_zen_mode() else ""
+        bl = get_blue_light_filter()
+        bl_text = f" | 🔆 BL:{bl}%" if bl > 0 else ""
+        msg = f"🎨 {theme_name} | {font_size}px{bl_text}{zen}"
+
+        if not hasattr(mw, "_ankitwin_status_label"):
+            mw._ankitwin_status_label = QLabel()
+            mw.statusBar().addPermanentWidget(mw._ankitwin_status_label)
+        mw._ankitwin_status_label.setText(msg)
+        mw._ankitwin_status_label.setVisible(True)
+    except (RuntimeError, AttributeError):
+        pass
+
+def _hide_status_bar():
+    """Hide the status bar indicator."""
+    if hasattr(mw, "_ankitwin_status_label"):
+        try:
+            mw._ankitwin_status_label.setVisible(False)
+        except (RuntimeError, AttributeError):
+            pass
+
+# ====== Feature 15: Seasonal Themes ======
+SEASONAL_THEMES = {
+    "spring": {"months": [3, 4, 5], "theme": "olive_green", "label": "Spring (March-May)"},
+    "summer": {"months": [6, 7, 8], "theme": "blue_light", "label": "Summer (June-August)"},
+    "autumn": {"months": [9, 10, 11], "theme": "sepia_special", "label": "Autumn (September-November)"},
+    "winter": {"months": [12, 1, 2], "theme": "gray_word", "label": "Winter (December-February)"},
+}
+
+def get_seasonal_themes_enabled() -> bool:
+    """Check if seasonal themes are enabled."""
+    cfg = get_config()
+    return cfg.get("seasonalThemes", {}).get("enabled", False)
+
+def _check_seasonal_theme():
+    """Apply seasonal theme if enabled."""
+    if not get_seasonal_themes_enabled():
+        return
+    cfg = get_config()
+    seasonal_cfg = cfg.get("seasonalThemes", {})
+    month = datetime.now().month
+    for season, data in SEASONAL_THEMES.items():
+        if month in data["months"]:
+            # Use user-configured theme or fall back to default
+            target = seasonal_cfg.get(season, data["theme"])
+            if target not in PALETTES:
+                target = data["theme"]
+            current = get_active_theme()
+            if current != target:
+                cfg["currentTheme"] = target
+                write_config(cfg)
+                apply_theme_everywhere(target)
+                tooltip(f"🌿 Seasonal theme: {data['label']}", period=2000)
+            break
+
+# ====== Feature 14: Community Theme Gallery (bundled themes) ======
+COMMUNITY_THEMES = {
+    "Solarized Light": {
+        "bg": "#FDF6E3", "fg": "#657B83", "muted": "#93A1A1", "border": "#EEE8D5",
+        "accent": "#268BD2", "button": "#EEE8D5", "buttonText": "#657B83",
+        "input": "#FDF6E3", "inputText": "#657B83", "hover": "#EEE8D5", "selection": "#D6DBDF",
+    },
+    "Nord Light": {
+        "bg": "#ECEFF4", "fg": "#2E3440", "muted": "#4C566A", "border": "#D8DEE9",
+        "accent": "#5E81AC", "button": "#E5E9F0", "buttonText": "#2E3440",
+        "input": "#ECEFF4", "inputText": "#2E3440", "hover": "#D8DEE9", "selection": "#C0C8D8",
+    },
+    "Rosé Pine Dawn": {
+        "bg": "#FAF4ED", "fg": "#575279", "muted": "#9893A5", "border": "#DFDAD9",
+        "accent": "#D7827E", "button": "#F2E9E1", "buttonText": "#575279",
+        "input": "#FFFAF3", "inputText": "#575279", "hover": "#F2E9E1", "selection": "#DFDAD9",
+    },
+    "Gruvbox Light": {
+        "bg": "#FBF1C7", "fg": "#3C3836", "muted": "#928374", "border": "#EBDBB2",
+        "accent": "#D65D0E", "button": "#EBDBB2", "buttonText": "#3C3836",
+        "input": "#FBF1C7", "inputText": "#3C3836", "hover": "#EBDBB2", "selection": "#D5C4A1",
+    },
+    "Catppuccin Latte": {
+        "bg": "#EFF1F5", "fg": "#4C4F69", "muted": "#9CA0B0", "border": "#CCD0DA",
+        "accent": "#1E66F5", "button": "#E6E9EF", "buttonText": "#4C4F69",
+        "input": "#EFF1F5", "inputText": "#4C4F69", "hover": "#CCD0DA", "selection": "#BCC0CC",
+    },
+    "Tokyo Night Light": {
+        "bg": "#D5D6DB", "fg": "#343B58", "muted": "#9699A3", "border": "#C0C1C8",
+        "accent": "#34548A", "button": "#C8C9D0", "buttonText": "#343B58",
+        "input": "#D5D6DB", "inputText": "#343B58", "hover": "#C0C1C8", "selection": "#B0B1BA",
+    },
+    "Everforest Light": {
+        "bg": "#FDF6E3", "fg": "#5C6A72", "muted": "#829181", "border": "#E0DCC7",
+        "accent": "#8DA101", "button": "#EFE8CF", "buttonText": "#5C6A72",
+        "input": "#FDF6E3", "inputText": "#5C6A72", "hover": "#E0DCC7", "selection": "#D4CCAD",
+    },
+    "Dracula Light": {
+        "bg": "#F8F8F2", "fg": "#282A36", "muted": "#6272A4", "border": "#E0E0E0",
+        "accent": "#BD93F9", "button": "#E8E8E4", "buttonText": "#282A36",
+        "input": "#F8F8F2", "inputText": "#282A36", "hover": "#E0E0E0", "selection": "#D0D0CE",
+    },
+}
+
 def css_vars(p):
     """Generate comprehensive CSS for all webview contexts."""
     font_size = get_font_size()
@@ -242,7 +748,45 @@ def css_vars(p):
     transitions = ""
     if anim_settings.get("enabled", True):
         duration = anim_settings.get("duration", 300)
-        transitions = f"transition: all {duration}ms ease-in-out;"
+        style = anim_settings.get("style", "fade")
+        if style == "fade":
+            transitions = f"transition: all {duration}ms ease-in-out;"
+        elif style == "slide":
+            transitions = f"transition: all {duration}ms cubic-bezier(0.4, 0, 0.2, 1);"
+        elif style == "morph":
+            transitions = f"transition: all {duration}ms cubic-bezier(0.68, -0.55, 0.265, 1.55);"
+        elif style == "zoom":
+            transitions = f"transition: all {duration}ms cubic-bezier(0.175, 0.885, 0.32, 1.275);"
+        else:
+            transitions = f"transition: all {duration}ms ease-in-out;"
+
+    # Blue light filter CSS
+    blue_light_css = _get_blue_light_filter_css()
+
+    # Custom user CSS
+    user_css = get_custom_css()
+
+    # Zen mode CSS
+    zen_css = _get_zen_mode_css() if get_zen_mode() else ""
+
+    # Card template helper variables (--att-* prefix)
+    template_helper_css = (
+        f"  --att-bg: {p['bg']};"
+        f"  --att-fg: {p['fg']};"
+        f"  --att-muted: {p['muted']};"
+        f"  --att-border: {p['border']};"
+        f"  --att-accent: {p['accent']};"
+        f"  --att-button: {p['button']};"
+        f"  --att-button-text: {p['buttonText']};"
+        f"  --att-input: {p['input']};"
+        f"  --att-input-text: {p['inputText']};"
+        f"  --att-hover: {p['hover']};"
+        f"  --att-selection: {p['selection']};"
+        f"  --att-font-size: {font_size}px;"
+        f"  --att-font-family: {font_family};"
+        f"  --att-line-height: {line_height};"
+        f"  --att-letter-spacing: {letter_spacing}px;"
+    )
 
     return (
         # Override Anki's built-in CSS custom properties used by Svelte components
@@ -315,6 +859,8 @@ def css_vars(p):
         f"  --state-buried: {p.get('stateBuried', '#D97706')} !important;"
         f"  --state-suspended: {p.get('stateSuspended', '#EAB308')} !important;"
         f"  --state-marked: {p.get('stateMarked', '#6366F1')} !important;"
+        # Feature 8: Theme-aware card template helper variables
+        + template_helper_css +
         "}"
         # Override nightMode/night_mode body classes that Anki applies in dark mode
         # This ensures our theme colors win even when OS is in dark mode
@@ -502,6 +1048,26 @@ def css_vars(p):
         f"  background:{p['button']} !important; border-top:1px solid {p['border']} !important;"
         f"  border-radius:0 0 8px 8px; padding:12px 16px;"
         "}}"
+        # Additional animation keyframes (Feature 11)
+        "@keyframes slideIn {"
+        "  from { opacity:0; transform:translateX(-20px); }"
+        "  to { opacity:1; transform:translateX(0); }"
+        "}"
+        "@keyframes zoomIn {"
+        "  from { opacity:0; transform:scale(0.8); }"
+        "  to { opacity:1; transform:scale(1); }"
+        "}"
+        "@keyframes morphIn {"
+        "  0% { opacity:0; transform:scale(0.95) rotate(-1deg); }"
+        "  50% { opacity:0.8; transform:scale(1.02) rotate(0.5deg); }"
+        "  100% { opacity:1; transform:scale(1) rotate(0); }"
+        "}"
+        # Blue light filter overlay (Feature 2)
+        + blue_light_css
+        # Zen mode CSS (Feature 5)
+        + zen_css
+        # User custom CSS (Feature 7)
+        + user_css
     )
 
 def inject_css(web_content, ctx):
@@ -699,6 +1265,41 @@ def inject_css(web_content, ctx):
 
     # Inject into page
     web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
+
+    # Feature 2: Blue light filter overlay element
+    bl_intensity = get_blue_light_filter()
+    if bl_intensity > 0:
+        opacity = bl_intensity / 100.0 * 0.35
+        web_content.body += (
+            f'<div id="ankithemetwin-bluelight-overlay" style="'
+            f'position:fixed;top:0;left:0;width:100%;height:100%;'
+            f'background:rgba(255,180,50,{opacity});'
+            f'pointer-events:none;z-index:99999;mix-blend-mode:multiply;'
+            f'"></div>'
+        )
+
+    # Feature 12: Match card background JS (reviewer only)
+    if get_match_card_background() and ("Reviewer" in ctx_name or "Review" in ctx_name):
+        match_bg_js = (
+            "<script>"
+            "(function(){"
+            "  function matchBg(){"
+            "    var card=document.querySelector('.card,.card1,.card2,.card3');"
+            "    if(!card)return;"
+            "    var cs=window.getComputedStyle(card);"
+            "    var bg=cs.backgroundColor;"
+            "    if(bg && bg!=='rgba(0, 0, 0, 0)'){"
+            "      document.body.style.backgroundColor=bg;"
+            "    }"
+            "  }"
+            "  setTimeout(matchBg,200);"
+            "  setTimeout(matchBg,800);"
+            "  var obs=new MutationObserver(function(){setTimeout(matchBg,100);});"
+            "  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
+            "})();"
+            "</script>"
+        )
+        web_content.head += match_bg_js
 
     # For Editor/AddCards/Browser contexts, inject JavaScript to style Shadow DOM elements
     # (Browser has an editor panel on the right side with shadow DOM fields)
@@ -2288,15 +2889,31 @@ def show_about_dialog():
     lbl = QLabel(
         '<div style="font-size:14px;">'
         f'<b>AnkiThemeTwin</b> v{VERSION}<br>'
-        '13+ themes including accessibility themes.<br>'
-        'Custom theme creator, presets, keyboard shortcuts.<br>'
-        'Configurable fonts, sizes, and comprehensive styling.<br><br>'
+        '21+ themes including accessibility and community themes.<br>'
+        'Full theming engine with eye-comfort tools.<br><br>'
         '<b>Features:</b><br>'
         '• 7 eye-comfort themes + 6 accessibility themes<br>'
+        '• 8 community themes (Solarized, Nord, Catppuccin, etc.)<br>'
         '• Custom theme creator with color picker<br>'
-        '• Theme presets and import/export<br>'
-        '• Keyboard shortcuts (Ctrl+Shift+1-7)<br>'
-        '• Advanced font customization<br><br>'
+        '• Theme presets, import/export, and community gallery<br>'
+        '• Keyboard shortcuts (Ctrl+Shift+1-7, Ctrl+Shift+Z)<br>'
+        '• Advanced font customization<br>'
+        '• 🔆 Blue light filter with intensity slider<br>'
+        '• 🌅 Ambient light auto-adjust (time-based)<br>'
+        '• 🧘 Zen Mode — distraction-free review<br>'
+        '• ⏱️ Pomodoro break reminders<br>'
+        '• 🔄 Theme rotation and seasonal themes<br>'
+        '• 📝 Per-note-type styling<br>'
+        '• 🎨 Custom CSS injection<br>'
+        '• 🎯 Match card background<br>'
+        '• 🔄 Theme sync across devices via AnkiWeb<br>'
+        '• Right-click context menu for quick switching<br>'
+        '• 4 animation styles (fade, slide, morph, zoom)<br>'
+        '• Status bar theme indicator<br><br>'
+        '<b>Card Template Helper Variables:</b><br>'
+        '<code>--att-bg, --att-fg, --att-accent, --att-border,<br>'
+        '--att-button, --att-input, --att-hover, --att-selection,<br>'
+        '--att-font-size, --att-font-family, --att-line-height</code><br><br>'
         'Author: <b>Dr. Mohammed</b><br>'
         '<a href="https://github.com/MohammedTsmu/AnkiThemeTwin">'
         'GitHub: MohammedTsmu/AnkiThemeTwin</a>'
@@ -2311,7 +2928,7 @@ def show_about_dialog():
     closeBtn.clicked.connect(dlg.accept)
     layout.addWidget(closeBtn)
     dlg.setLayout(layout)
-    dlg.resize(600, 400)
+    dlg.resize(650, 550)
     dlg.exec()
 
 # ---------------- Custom Theme Creator Dialog ----------------
@@ -2790,6 +3407,21 @@ def show_animation_settings():
     style_group.addButton(fade_rb)
     style_layout.addWidget(fade_rb)
 
+    slide_rb = QRadioButton("Slide")
+    slide_rb.setChecked(settings.get("style", "fade") == "slide")
+    style_group.addButton(slide_rb)
+    style_layout.addWidget(slide_rb)
+
+    morph_rb = QRadioButton("Morph (Elastic)")
+    morph_rb.setChecked(settings.get("style", "fade") == "morph")
+    style_group.addButton(morph_rb)
+    style_layout.addWidget(morph_rb)
+
+    zoom_rb = QRadioButton("Zoom")
+    zoom_rb.setChecked(settings.get("style", "fade") == "zoom")
+    style_group.addButton(zoom_rb)
+    style_layout.addWidget(zoom_rb)
+
     none_rb = QRadioButton("None (Instant)")
     none_rb.setChecked(settings.get("style", "fade") == "none")
     style_group.addButton(none_rb)
@@ -2799,10 +3431,20 @@ def show_animation_settings():
 
     # Save button
     def save_settings():
+        if fade_rb.isChecked():
+            style = "fade"
+        elif slide_rb.isChecked():
+            style = "slide"
+        elif morph_rb.isChecked():
+            style = "morph"
+        elif zoom_rb.isChecked():
+            style = "zoom"
+        else:
+            style = "none"
         new_settings = {
             "enabled": enabled_cb.isChecked(),
             "duration": duration_spin.value(),
-            "style": "fade" if fade_rb.isChecked() else "none"
+            "style": style,
         }
         save_animation_settings(new_settings)
         tooltip("Animation settings saved!")
@@ -3151,7 +3793,730 @@ def show_statistics_dialog():
 
     dlg.exec()
 
-# ---------------- Menu ----------------
+# ====== Feature 1: Pomodoro Timer Dialog ======
+def show_pomodoro_dialog():
+    """Show Pomodoro timer configuration and control dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Pomodoro Timer")
+    dlg.resize(450, 350)
+    layout = QVBoxLayout(dlg)
+
+    settings = get_pomodoro_settings()
+
+    header = QLabel("<h3>⏱️ Pomodoro Timer</h3>"
+                    "<p>Take regular breaks to protect your eyes and maintain focus.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    # Enable
+    enabled_cb = QCheckBox("Enable Pomodoro Timer")
+    enabled_cb.setChecked(settings.get("enabled", False))
+    layout.addWidget(enabled_cb)
+
+    # Study duration
+    study_layout = QHBoxLayout()
+    study_layout.addWidget(QLabel("Study duration:"))
+    study_spin = QSpinBox()
+    study_spin.setRange(5, 120)
+    study_spin.setValue(settings.get("studyMinutes", 25))
+    study_spin.setSuffix(" min")
+    study_layout.addWidget(study_spin)
+    layout.addLayout(study_layout)
+
+    # Break duration
+    break_layout = QHBoxLayout()
+    break_layout.addWidget(QLabel("Break duration:"))
+    break_spin = QSpinBox()
+    break_spin.setRange(1, 30)
+    break_spin.setValue(settings.get("breakMinutes", 5))
+    break_spin.setSuffix(" min")
+    break_layout.addWidget(break_spin)
+    layout.addLayout(break_layout)
+
+    # Auto start
+    auto_cb = QCheckBox("Auto-start next session after break")
+    auto_cb.setChecked(settings.get("autoStart", False))
+    layout.addWidget(auto_cb)
+
+    # Status
+    is_running = getattr(mw, "_ankitwin_pomodoro_studying", False)
+    status = QLabel(f"Status: {'🟢 Running' if is_running else '⭕ Stopped'}")
+    layout.addWidget(status)
+
+    layout.addStretch()
+
+    # Buttons
+    btn_layout = QHBoxLayout()
+
+    def save_and_start():
+        new_settings = {
+            "enabled": enabled_cb.isChecked(),
+            "studyMinutes": study_spin.value(),
+            "breakMinutes": break_spin.value(),
+            "autoStart": auto_cb.isChecked(),
+        }
+        save_pomodoro_settings(new_settings)
+        if enabled_cb.isChecked():
+            _start_pomodoro_timer()
+            tooltip("⏱️ Pomodoro timer started!", period=2000)
+        else:
+            _stop_pomodoro_timer()
+        dlg.accept()
+
+    def stop_timer():
+        _stop_pomodoro_timer()
+        tooltip("⏱️ Pomodoro timer stopped", period=1500)
+        dlg.accept()
+
+    save_btn = QPushButton("Save & Start")
+    save_btn.clicked.connect(save_and_start)
+    btn_layout.addWidget(save_btn)
+
+    stop_btn = QPushButton("Stop Timer")
+    stop_btn.clicked.connect(stop_timer)
+    btn_layout.addWidget(stop_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    btn_layout.addWidget(cancel_btn)
+
+    layout.addLayout(btn_layout)
+    dlg.exec()
+
+# ====== Feature 2: Blue Light Filter Dialog ======
+def show_blue_light_dialog():
+    """Show blue light filter adjustment dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Blue Light Filter")
+    dlg.resize(450, 250)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🔆 Blue Light Filter</h3>"
+                    "<p>Reduce blue light to ease eye strain during evening study.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    current = get_blue_light_filter()
+
+    slider_layout = QVBoxLayout()
+    value_label = QLabel(f"Intensity: {current}%")
+    slider_layout.addWidget(value_label)
+
+    slider = QSlider(Qt.Orientation.Horizontal)
+    slider.setRange(0, 100)
+    slider.setValue(current)
+
+    def update_label(val):
+        value_label.setText(f"Intensity: {val}%")
+
+    slider.valueChanged.connect(update_label)
+    slider_layout.addWidget(slider)
+
+    desc = QLabel("0% = Off | 50% = Moderate | 100% = Maximum warmth")
+    desc.setStyleSheet("font-size:11px; color:gray;")
+    slider_layout.addWidget(desc)
+    layout.addLayout(slider_layout)
+
+    layout.addStretch()
+
+    def apply_filter():
+        set_blue_light_filter(slider.value())
+        tooltip(f"🔆 Blue light filter: {slider.value()}%", period=1500)
+        dlg.accept()
+
+    apply_btn = QPushButton("Apply")
+    apply_btn.clicked.connect(apply_filter)
+    layout.addWidget(apply_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
+# ====== Feature 3: Theme Sync Dialog ======
+def show_sync_dialog():
+    """Show theme sync configuration dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Theme Sync")
+    dlg.resize(500, 350)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🔄 Theme Sync via AnkiWeb</h3>"
+                    "<p>Sync your theme settings across devices using Anki's media sync.<br>"
+                    "Settings are stored in collection.media and synced by AnkiWeb.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    cfg = get_config()
+    enabled_cb = QCheckBox("Enable theme sync")
+    enabled_cb.setChecked(cfg.get("syncEnabled", False))
+    layout.addWidget(enabled_cb)
+
+    sync_path = _get_sync_file_path()
+    if sync_path and os.path.exists(sync_path):
+        try:
+            mod_time = datetime.fromtimestamp(os.path.getmtime(sync_path))
+            status = QLabel(f"Last synced: {mod_time.strftime('%Y-%m-%d %H:%M')}")
+        except (OSError, ValueError):
+            status = QLabel("Sync file exists")
+    else:
+        status = QLabel("No sync file found yet")
+    layout.addWidget(status)
+
+    layout.addStretch()
+
+    btn_layout = QHBoxLayout()
+
+    def save_settings():
+        cfg = get_config()
+        cfg["syncEnabled"] = enabled_cb.isChecked()
+        write_config(cfg)
+        if enabled_cb.isChecked():
+            sync_config_to_media()
+            tooltip("🔄 Sync enabled and settings exported!", period=2000)
+        dlg.accept()
+
+    def force_push():
+        sync_config_to_media()
+        tooltip("🔄 Settings pushed to sync!", period=1500)
+
+    def force_pull():
+        sync_config_from_media()
+        apply_theme_everywhere(get_active_theme())
+        dlg.accept()
+
+    save_btn = QPushButton("Save")
+    save_btn.clicked.connect(save_settings)
+    btn_layout.addWidget(save_btn)
+
+    push_btn = QPushButton("Push to Sync")
+    push_btn.clicked.connect(force_push)
+    btn_layout.addWidget(push_btn)
+
+    pull_btn = QPushButton("Pull from Sync")
+    pull_btn.clicked.connect(force_pull)
+    btn_layout.addWidget(pull_btn)
+
+    layout.addLayout(btn_layout)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ====== Feature 4: Note-Type Styling Dialog ======
+def show_note_type_styling_dialog():
+    """Show dialog to configure per-note-type styling."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Note Type Styling")
+    dlg.resize(600, 500)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>📝 Note Type Specific Styling</h3>"
+                    "<p>Set different fonts, sizes, or themes for each note type.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    # Current styles
+    styles = get_note_type_styles()
+    styles_list = QTextEdit()
+    styles_list.setReadOnly(True)
+    styles_list.setMaximumHeight(120)
+
+    def refresh_list():
+        if not styles:
+            styles_list.setPlainText("No note-type styles configured yet.")
+        else:
+            text = ""
+            for nt, s in styles.items():
+                parts = []
+                if "fontSize" in s:
+                    parts.append(f"{s['fontSize']}px")
+                if "fontFamily" in s:
+                    parts.append(s["fontFamily"])
+                if "theme" in s:
+                    parts.append(f"theme:{s['theme']}")
+                text += f"• {nt}: {', '.join(parts)}\n"
+            styles_list.setPlainText(text)
+
+    refresh_list()
+    layout.addWidget(styles_list)
+
+    # Add new style
+    grid = QGridLayout()
+    grid.addWidget(QLabel("Note Type Name:"), 0, 0)
+    nt_input = QLineEdit()
+    nt_input.setPlaceholderText("e.g., Basic, Cloze, Basic (and reversed)")
+    grid.addWidget(nt_input, 0, 1)
+
+    grid.addWidget(QLabel("Font Size (px):"), 1, 0)
+    fs_spin = QSpinBox()
+    fs_spin.setRange(0, 48)
+    fs_spin.setValue(0)
+    fs_spin.setSpecialValueText("Default")
+    grid.addWidget(fs_spin, 1, 1)
+
+    grid.addWidget(QLabel("Font Family:"), 2, 0)
+    ff_input = QLineEdit()
+    ff_input.setPlaceholderText("Leave empty for default")
+    grid.addWidget(ff_input, 2, 1)
+
+    grid.addWidget(QLabel("Override Theme:"), 3, 0)
+    theme_combo = QComboBox()
+    theme_combo.addItem("(No Override)", "")
+    for label, key in THEME_OPTIONS + ACCESSIBILITY_THEMES:
+        theme_combo.addItem(label, key)
+    grid.addWidget(theme_combo, 3, 1)
+
+    layout.addLayout(grid)
+
+    btn_layout = QHBoxLayout()
+
+    def save_style():
+        nt = nt_input.text().strip()
+        if not nt:
+            showInfo("Please enter a note type name!")
+            return
+        style = {}
+        if fs_spin.value() > 0:
+            style["fontSize"] = fs_spin.value()
+        if ff_input.text().strip():
+            style["fontFamily"] = ff_input.text().strip()
+        theme_key = theme_combo.currentData()
+        if theme_key:
+            style["theme"] = theme_key
+        if style:
+            set_note_type_style(nt, style)
+            styles[nt] = style
+            refresh_list()
+            nt_input.clear()
+
+    def remove_style():
+        nt = nt_input.text().strip()
+        if nt and nt in styles:
+            delete_note_type_style(nt)
+            del styles[nt]
+            refresh_list()
+            nt_input.clear()
+            tooltip(f"Removed style for '{nt}'")
+
+    save_btn = QPushButton("Save Style")
+    save_btn.clicked.connect(save_style)
+    btn_layout.addWidget(save_btn)
+
+    remove_btn = QPushButton("Remove Style")
+    remove_btn.clicked.connect(remove_style)
+    btn_layout.addWidget(remove_btn)
+
+    layout.addLayout(btn_layout)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.accept)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ====== Feature 6: Theme Rotation Dialog ======
+def show_rotation_dialog():
+    """Show theme rotation configuration dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Theme Rotation")
+    dlg.resize(550, 450)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🔄 Theme Rotation</h3>"
+                    "<p>Auto-rotate through selected themes to keep study sessions fresh.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    settings = get_rotation_settings()
+
+    enabled_cb = QCheckBox("Enable theme rotation")
+    enabled_cb.setChecked(settings.get("enabled", False))
+    layout.addWidget(enabled_cb)
+
+    # Interval
+    interval_layout = QHBoxLayout()
+    interval_layout.addWidget(QLabel("Rotate every:"))
+    cards_spin = QSpinBox()
+    cards_spin.setRange(0, 1000)
+    cards_spin.setValue(settings.get("intervalCards", 10))
+    cards_spin.setSuffix(" cards")
+    cards_spin.setSpecialValueText("Disabled")
+    interval_layout.addWidget(cards_spin)
+
+    minutes_spin = QSpinBox()
+    minutes_spin.setRange(0, 120)
+    minutes_spin.setValue(settings.get("intervalMinutes", 0))
+    minutes_spin.setSuffix(" min")
+    minutes_spin.setSpecialValueText("Disabled")
+    interval_layout.addWidget(minutes_spin)
+    layout.addLayout(interval_layout)
+
+    # Theme selection
+    layout.addWidget(QLabel("Themes to rotate through:"))
+    theme_checkboxes = {}
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    scroll_layout = QVBoxLayout(scroll_widget)
+
+    selected = settings.get("themes", [])
+    all_themes = list(THEME_OPTIONS) + list(ACCESSIBILITY_THEMES)
+    for label, key in all_themes:
+        cb = QCheckBox(label)
+        cb.setChecked(key in selected)
+        cb.setProperty("theme_key", key)
+        theme_checkboxes[key] = cb
+        scroll_layout.addWidget(cb)
+
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
+
+    def save_settings():
+        themes = [k for k, cb in theme_checkboxes.items() if cb.isChecked()]
+        new_settings = {
+            "enabled": enabled_cb.isChecked(),
+            "themes": themes,
+            "intervalCards": cards_spin.value(),
+            "intervalMinutes": minutes_spin.value(),
+        }
+        save_rotation_settings(new_settings)
+        if enabled_cb.isChecked() and minutes_spin.value() > 0:
+            _start_rotation_timer()
+        tooltip("🔄 Rotation settings saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
+# ====== Feature 7: Custom CSS Dialog ======
+def show_custom_css_dialog():
+    """Show dialog for custom CSS injection."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Custom CSS")
+    dlg.resize(650, 500)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🎨 Custom CSS Injection</h3>"
+                    "<p>Add your own CSS rules that are injected alongside the theme.<br>"
+                    "This CSS is applied after all theme styles.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    css_edit = QTextEdit()
+    css_edit.setPlainText(get_custom_css())
+    css_edit.setPlaceholderText(
+        "/* Example custom CSS */\n"
+        ".card { border-radius: 12px; }\n"
+        "h1 { font-size: 24px; }\n"
+        "\n"
+        "/* Use --att-* variables from your theme: */\n"
+        ".myclass { color: var(--att-accent); }"
+    )
+    layout.addWidget(css_edit)
+
+    hint = QLabel(
+        "💡 Available theme variables: --att-bg, --att-fg, --att-accent, "
+        "--att-border, --att-button, --att-input, --att-hover, --att-selection, "
+        "--att-font-size, --att-font-family, --att-line-height"
+    )
+    hint.setWordWrap(True)
+    hint.setStyleSheet("font-size:11px; color:gray; padding:4px;")
+    layout.addWidget(hint)
+
+    btn_layout = QHBoxLayout()
+
+    def apply_css():
+        set_custom_css(css_edit.toPlainText())
+        tooltip("🎨 Custom CSS applied!")
+        dlg.accept()
+
+    def clear_css():
+        css_edit.clear()
+        set_custom_css("")
+        tooltip("Custom CSS cleared")
+
+    apply_btn = QPushButton("Apply & Save")
+    apply_btn.clicked.connect(apply_css)
+    btn_layout.addWidget(apply_btn)
+
+    clear_btn = QPushButton("Clear All")
+    clear_btn.clicked.connect(clear_css)
+    btn_layout.addWidget(clear_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    btn_layout.addWidget(cancel_btn)
+
+    layout.addLayout(btn_layout)
+    dlg.exec()
+
+# ====== Feature 9: Ambient Light Settings Dialog ======
+def show_ambient_light_dialog():
+    """Show ambient light auto-adjust settings dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Ambient Light Auto-Adjust")
+    dlg.resize(500, 380)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🌅 Ambient Light Auto-Adjust</h3>"
+                    "<p>Automatically adjusts blue light filter based on time of day,<br>"
+                    "similar to f.lux or Night Shift. Strongest at night, lightest at noon.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    settings = get_ambient_light_settings()
+
+    enabled_cb = QCheckBox("Enable automatic blue light adjustment")
+    enabled_cb.setChecked(settings.get("enabled", False))
+    layout.addWidget(enabled_cb)
+
+    # Min filter
+    min_layout = QHBoxLayout()
+    min_layout.addWidget(QLabel("Minimum filter (noon):"))
+    min_spin = QSpinBox()
+    min_spin.setRange(0, 100)
+    min_spin.setValue(settings.get("minFilter", 0))
+    min_spin.setSuffix("%")
+    min_layout.addWidget(min_spin)
+    layout.addLayout(min_layout)
+
+    # Max filter
+    max_layout = QHBoxLayout()
+    max_layout.addWidget(QLabel("Maximum filter (midnight):"))
+    max_spin = QSpinBox()
+    max_spin.setRange(0, 100)
+    max_spin.setValue(settings.get("maxFilter", 60))
+    max_spin.setSuffix("%")
+    max_layout.addWidget(max_spin)
+    layout.addLayout(max_layout)
+
+    # Current calculation
+    current_calc = _calculate_ambient_filter() if settings.get("enabled") else 0
+    preview = QLabel(f"Current auto-calculated filter: {current_calc}%")
+    layout.addWidget(preview)
+
+    note = QLabel("Note: When enabled, this overrides the manual blue light filter slider.")
+    note.setWordWrap(True)
+    note.setStyleSheet("font-size:11px; color:gray;")
+    layout.addWidget(note)
+
+    layout.addStretch()
+
+    def save_settings():
+        new_settings = {
+            "enabled": enabled_cb.isChecked(),
+            "minFilter": min_spin.value(),
+            "maxFilter": max_spin.value(),
+        }
+        save_ambient_light_settings(new_settings)
+        if enabled_cb.isChecked():
+            _apply_ambient_light()
+        tooltip("🌅 Ambient light settings saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save & Apply")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
+
+# ====== Feature 14: Community Theme Gallery Dialog ======
+def show_community_gallery_dialog():
+    """Show community theme gallery with bundled popular themes."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Community Theme Gallery")
+    dlg.resize(800, 600)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🌍 Community Theme Gallery</h3>"
+                    "<p>Popular color schemes from the community. Click Install to add any theme.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll_widget = QWidget()
+    scroll_layout = QVBoxLayout(scroll_widget)
+
+    for name, palette in COMMUNITY_THEMES.items():
+        frame = QFrame()
+        frame.setFrameStyle(QFrame.Shape.Box | QFrame.Shadow.Raised)
+        frame_layout = QVBoxLayout(frame)
+
+        name_label = QLabel(f"<b>{name}</b>")
+        frame_layout.addWidget(name_label)
+
+        # Color preview boxes
+        colors_layout = QHBoxLayout()
+        for ck in ["bg", "fg", "accent", "button", "input"]:
+            cbox = QLabel(ck.upper())
+            cbox.setStyleSheet(
+                f"background:{palette.get(ck, '#FFF')};"
+                f"color:{palette.get('fg', '#000')};"
+                f"border:1px solid {palette.get('border', '#CCC')};"
+                f"padding:8px; min-width:50px;"
+            )
+            cbox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            colors_layout.addWidget(cbox)
+        frame_layout.addLayout(colors_layout)
+
+        def install_theme(n=name, p=palette):
+            save_custom_theme(n, p)
+            tooltip(f"✅ '{n}' installed! Find it in Custom Themes.")
+
+        def install_and_apply(n=name, p=palette):
+            save_custom_theme(n, p)
+            set_theme(n)
+            tooltip(f"✅ '{n}' installed and applied!")
+            dlg.accept()
+
+        btn_layout = QHBoxLayout()
+        inst_btn = QPushButton("Install")
+        inst_btn.clicked.connect(install_theme)
+        btn_layout.addWidget(inst_btn)
+
+        apply_btn = QPushButton("Install & Apply")
+        apply_btn.clicked.connect(install_and_apply)
+        btn_layout.addWidget(apply_btn)
+
+        frame_layout.addLayout(btn_layout)
+        scroll_layout.addWidget(frame)
+
+    scroll.setWidget(scroll_widget)
+    layout.addWidget(scroll)
+
+    # Import from URL section
+    url_layout = QHBoxLayout()
+    url_layout.addWidget(QLabel("Import from URL:"))
+    url_input = QLineEdit()
+    url_input.setPlaceholderText("https://example.com/theme.json")
+    url_layout.addWidget(url_input)
+
+    def import_from_url():
+        url = url_input.text().strip()
+        if not url:
+            return
+        try:
+            import urllib.request
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            name = data.get("name", "imported_theme")
+            palette = data.get("palette")
+            if palette:
+                save_custom_theme(name, palette)
+                tooltip(f"✅ '{name}' imported from URL!")
+            else:
+                showInfo("Invalid theme format!")
+        except Exception as e:
+            showInfo(f"Error importing: {e}")
+
+    fetch_btn = QPushButton("Fetch & Install")
+    fetch_btn.clicked.connect(import_from_url)
+    url_layout.addWidget(fetch_btn)
+    layout.addLayout(url_layout)
+
+    close_btn = QPushButton("Close")
+    close_btn.clicked.connect(dlg.reject)
+    layout.addWidget(close_btn)
+
+    dlg.exec()
+
+# ====== Feature 15: Seasonal Themes Dialog ======
+def show_seasonal_themes_dialog():
+    """Show seasonal themes configuration dialog."""
+    dlg = QDialog(mw)
+    dlg.setWindowTitle("Seasonal Themes")
+    dlg.resize(500, 400)
+    layout = QVBoxLayout(dlg)
+
+    header = QLabel("<h3>🌿 Seasonal Themes</h3>"
+                    "<p>Automatically switch themes based on the current season.</p>")
+    header.setWordWrap(True)
+    layout.addWidget(header)
+
+    cfg = get_config()
+    seasonal = cfg.get("seasonalThemes", {"enabled": False})
+
+    enabled_cb = QCheckBox("Enable seasonal theme switching")
+    enabled_cb.setChecked(seasonal.get("enabled", False))
+    layout.addWidget(enabled_cb)
+
+    # Show current season
+    month = datetime.now().month
+    current_season = "Unknown"
+    for season, data in SEASONAL_THEMES.items():
+        if month in data["months"]:
+            current_season = data["label"]
+            break
+
+    season_label = QLabel(f"<b>Current season:</b> {current_season}")
+    layout.addWidget(season_label)
+
+    # Season-theme mapping
+    layout.addWidget(QLabel("<br><b>Season → Theme Mapping:</b>"))
+    season_combos = {}
+    grid = QGridLayout()
+    all_theme_keys = [key for _, key in THEME_OPTIONS + ACCESSIBILITY_THEMES]
+
+    for idx, (season, data) in enumerate(SEASONAL_THEMES.items()):
+        grid.addWidget(QLabel(data["label"]), idx, 0)
+        combo = QComboBox()
+        combo.addItems(all_theme_keys)
+        # Set current mapping
+        current = seasonal.get(season, data["theme"])
+        if current in all_theme_keys:
+            combo.setCurrentText(current)
+        else:
+            combo.setCurrentText(data["theme"])
+        season_combos[season] = combo
+        grid.addWidget(combo, idx, 1)
+
+    layout.addLayout(grid)
+
+    note = QLabel("Note: When enabled, seasonal themes override your manual theme selection "
+                  "and scheduled theme switching.")
+    note.setWordWrap(True)
+    note.setStyleSheet("font-size:11px; color:gray;")
+    layout.addWidget(note)
+
+    layout.addStretch()
+
+    def save_settings():
+        new_seasonal = {"enabled": enabled_cb.isChecked()}
+        for season, combo in season_combos.items():
+            new_seasonal[season] = combo.currentText()
+        cfg = get_config()
+        cfg["seasonalThemes"] = new_seasonal
+        write_config(cfg)
+        if enabled_cb.isChecked():
+            _check_seasonal_theme()
+        tooltip("🌿 Seasonal themes saved!")
+        dlg.accept()
+
+    save_btn = QPushButton("Save & Apply")
+    save_btn.clicked.connect(save_settings)
+    layout.addWidget(save_btn)
+
+    cancel_btn = QPushButton("Cancel")
+    cancel_btn.clicked.connect(dlg.reject)
+    layout.addWidget(cancel_btn)
+
+    dlg.exec()
 
 def set_theme(theme: Theme):
     """Set the current theme."""
@@ -3164,6 +4529,10 @@ def set_theme(theme: Theme):
     apply_theme_everywhere(theme)
     # Record usage statistics
     record_theme_usage(theme)
+    # Feature 13: Update status bar
+    _update_status_bar()
+    # Feature 3: Sync config if enabled
+    sync_config_to_media()
 
 def set_font_size(size: int):
     """Set the font size and refresh all views. Valid range: 8-72px."""
@@ -3174,6 +4543,7 @@ def set_font_size(size: int):
     cfg["fontSize"] = size
     write_config(cfg)
     apply_theme_everywhere(get_active_theme())
+    _update_status_bar()
 
 def add_menu():
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
@@ -3189,6 +4559,12 @@ def add_menu():
             tooltip("🎨 Addon theming enabled", period=2000)
     actFollow.triggered.connect(toggle_follow_system)
     m.addAction(actFollow)
+
+    # Feature 5: Zen Mode toggle
+    actZen = QAction("🧘 Zen Mode (Distraction-Free)", mw, checkable=True)
+    actZen.setChecked(get_zen_mode())
+    actZen.triggered.connect(lambda _: toggle_zen_mode())
+    m.addAction(actZen)
 
     m.addSeparator()
 
@@ -3251,9 +4627,31 @@ def add_menu():
     actPresets.triggered.connect(show_presets_manager)
     m.addAction(actPresets)
 
+    # Feature 14: Community Gallery
+    actGallery = QAction("🌍 Community Theme Gallery...", mw)
+    actGallery.triggered.connect(show_community_gallery_dialog)
+    m.addAction(actGallery)
+
     m.addSeparator()
 
-    # ---- Scheduling & Per-Deck ----
+    # ---- Eye Comfort & Filters ----
+    actBlueLight = QAction("🔆 Blue Light Filter...", mw)
+    actBlueLight.triggered.connect(show_blue_light_dialog)
+    m.addAction(actBlueLight)
+
+    actAmbient = QAction("🌅 Ambient Light Auto-Adjust...", mw)
+    actAmbient.triggered.connect(show_ambient_light_dialog)
+    m.addAction(actAmbient)
+
+    # Feature 12: Match Card Background toggle
+    actMatchBg = QAction("🎯 Match Card Background", mw, checkable=True)
+    actMatchBg.setChecked(get_match_card_background())
+    actMatchBg.triggered.connect(lambda _: toggle_match_card_background())
+    m.addAction(actMatchBg)
+
+    m.addSeparator()
+
+    # ---- Scheduling & Automation ----
     actScheduled = QAction("Scheduled Theme Switching...", mw)
     actScheduled.triggered.connect(show_scheduled_themes_dialog)
     m.addAction(actScheduled)
@@ -3262,6 +4660,24 @@ def add_menu():
     actDeckThemes.triggered.connect(show_deck_themes_dialog)
     m.addAction(actDeckThemes)
 
+    # Feature 4: Note-Type Styling
+    actNoteType = QAction("📝 Note Type Styling...", mw)
+    actNoteType.triggered.connect(show_note_type_styling_dialog)
+    m.addAction(actNoteType)
+
+    # Feature 6: Theme Rotation
+    actRotation = QAction("🔄 Theme Rotation...", mw)
+    actRotation.triggered.connect(show_rotation_dialog)
+    m.addAction(actRotation)
+
+    # Feature 15: Seasonal Themes
+    actSeasonal = QAction("🌿 Seasonal Themes...", mw)
+    actSeasonal.triggered.connect(show_seasonal_themes_dialog)
+    m.addAction(actSeasonal)
+
+    m.addSeparator()
+
+    # ---- Visual & Animation ----
     actAnimations = QAction("Animation Settings...", mw)
     actAnimations.triggered.connect(show_animation_settings)
     m.addAction(actAnimations)
@@ -3270,6 +4686,11 @@ def add_menu():
     actVisualEnhancements.triggered.connect(show_visual_enhancements_dialog)
     m.addAction(actVisualEnhancements)
 
+    # Feature 7: Custom CSS
+    actCustomCSS = QAction("🎨 Custom CSS...", mw)
+    actCustomCSS.triggered.connect(show_custom_css_dialog)
+    m.addAction(actCustomCSS)
+
     m.addSeparator()
 
     # ---- Study & Quick Access ----
@@ -3277,16 +4698,26 @@ def add_menu():
     actStudyMode.triggered.connect(show_study_mode_dialog)
     m.addAction(actStudyMode)
 
+    # Feature 1: Pomodoro Timer
+    actPomodoro = QAction("⏱️ Pomodoro Timer...", mw)
+    actPomodoro.triggered.connect(show_pomodoro_dialog)
+    m.addAction(actPomodoro)
+
     actQuickSettings = QAction("Quick Settings Panel...", mw)
     actQuickSettings.triggered.connect(show_quick_settings_panel)
     m.addAction(actQuickSettings)
 
     m.addSeparator()
 
-    # ---- Configuration & Statistics ----
+    # ---- Configuration & Sync ----
     actBackup = QAction("Backup & Restore...", mw)
     actBackup.triggered.connect(show_backup_restore_dialog)
     m.addAction(actBackup)
+
+    # Feature 3: Theme Sync
+    actSync = QAction("🔄 Theme Sync...", mw)
+    actSync.triggered.connect(show_sync_dialog)
+    m.addAction(actSync)
 
     actStatistics = QAction("Usage Statistics...", mw)
     actStatistics.triggered.connect(show_statistics_dialog)
@@ -3342,6 +4773,95 @@ def setup_keyboard_shortcuts():
         show_shortcut_feedback(f"Font size decreased to {new_size}px", "📉")
     decrease_font.activated.connect(decrease_size)
 
+    # Feature 5: Ctrl+Shift+Z for Zen Mode toggle
+    zen_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Z"), mw)
+    zen_shortcut.activated.connect(toggle_zen_mode)
+
+# ====== Feature 10: Right-Click Context Menu ======
+def _on_webview_context_menu(webview, menu):
+    """Add theme switching options to webview right-click context menu."""
+    if is_follow_system_theme():
+        return
+
+    theme_menu = QMenu("🎨 AnkiThemeTwin", menu)
+
+    # Quick theme options
+    for label, key in THEME_OPTIONS[:5]:
+        act = QAction(label, theme_menu)
+        act.triggered.connect(lambda _, k=key: set_theme(k))
+        theme_menu.addAction(act)
+
+    theme_menu.addSeparator()
+
+    # Favorite themes
+    favorites = get_favorite_themes()
+    if favorites:
+        for fav in favorites[:5]:
+            if fav in PALETTES:
+                act = QAction(f"★ {fav.replace('_', ' ').title()}", theme_menu)
+                act.triggered.connect(lambda _, f=fav: set_theme(f))
+                theme_menu.addAction(act)
+        theme_menu.addSeparator()
+
+    # Quick toggles
+    zen_act = QAction("🧘 Toggle Zen Mode", theme_menu)
+    zen_act.triggered.connect(toggle_zen_mode)
+    theme_menu.addAction(zen_act)
+
+    # Font size submenu
+    font_sub = QMenu("Font Size", theme_menu)
+    for label, size in [("Small (14px)", 14), ("Medium (16px)", 16), ("Large (20px)", 20), ("Huge (24px)", 24)]:
+        act = QAction(label, font_sub)
+        act.triggered.connect(lambda _, s=size: set_font_size(s))
+        font_sub.addAction(act)
+    theme_menu.addMenu(font_sub)
+
+    # Blue light filter quick options
+    bl_sub = QMenu("🔆 Blue Light Filter", theme_menu)
+    for label, val in [("Off", 0), ("Light (20%)", 20), ("Medium (40%)", 40), ("Strong (60%)", 60), ("Max (80%)", 80)]:
+        act = QAction(label, bl_sub)
+        act.triggered.connect(lambda _, v=val: set_blue_light_filter(v))
+        bl_sub.addAction(act)
+    theme_menu.addMenu(bl_sub)
+
+    menu.addSeparator()
+    menu.addMenu(theme_menu)
+
+# ====== Feature 4: Reviewer hook for note-type CSS ======
+def _on_reviewer_did_show_answer(card):
+    """Apply note-type specific styling when reviewing."""
+    _apply_note_type_styling_for_card(card)
+
+def _on_reviewer_did_show_question(card):
+    """Apply note-type specific styling when question is shown."""
+    _apply_note_type_styling_for_card(card)
+    # Feature 6: Check theme rotation on each card
+    _check_theme_rotation()
+
+def _apply_note_type_styling_for_card(card):
+    """Apply note-type specific CSS for the current card."""
+    styles = get_note_type_styles()
+    if not styles:
+        return
+    try:
+        note = card.note()
+        model = note.note_type()
+        if model:
+            nt_name = model.get("name", "")
+            css = _get_note_type_css(nt_name)
+            if css:
+                js = (
+                    "(function(){"
+                    "var sid='ankithemetwin-notetype';"
+                    "var el=document.getElementById(sid);"
+                    "if(!el){el=document.createElement('style');el.id=sid;document.head.appendChild(el);}"
+                    f"el.textContent={json.dumps(css)};"
+                    "})();"
+                )
+                mw.reviewer.web.eval(js)
+    except (AttributeError, Exception):
+        pass
+
 def on_profile_open():
     if not getattr(mw, "_ankitwin_menu", False):
         add_menu()
@@ -3352,22 +4872,61 @@ def on_profile_open():
             PALETTES[name] = palette
         mw._ankitwin_menu = True
 
+    # Feature 3: Sync config from media if available
+    sync_config_from_media()
+
+    # Feature 15: Check seasonal theme
+    _check_seasonal_theme()
+
     # Check scheduled theme on startup
     check_scheduled_theme()
+
+    # Feature 9: Apply ambient light filter
+    _apply_ambient_light()
 
     # Apply current theme
     apply_theme_everywhere(get_active_theme())
 
+    # Feature 13: Update status bar
+    _update_status_bar()
+
+    # Feature 1: Start Pomodoro timer if enabled
+    settings = get_pomodoro_settings()
+    if settings.get("enabled"):
+        _start_pomodoro_timer()
+
+    # Feature 6: Start rotation timer if enabled
+    _start_rotation_timer()
+
     # Set up timer to check scheduled themes every 5 minutes
     if not hasattr(mw, "_ankitwin_timer"):
-        from aqt.qt import QTimer
         timer = QTimer(mw)
         timer.timeout.connect(check_scheduled_theme)
         timer.start(300000)  # 5 minutes in milliseconds
         mw._ankitwin_timer = timer
+
+    # Feature 9: Timer for ambient light updates every 10 minutes
+    if not hasattr(mw, "_ankitwin_ambient_timer"):
+        ambient_timer = QTimer(mw)
+        ambient_timer.timeout.connect(_apply_ambient_light)
+        ambient_timer.start(600000)  # 10 minutes
+        mw._ankitwin_ambient_timer = ambient_timer
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
 gui_hooks.browser_will_show.append(on_browser_will_show)
 gui_hooks.editor_did_load_note.append(on_editor_did_load_note)
 gui_hooks.theme_did_change.append(on_theme_did_change)
+
+# Feature 10: Right-click context menu
+try:
+    gui_hooks.webview_will_show_context_menu.append(_on_webview_context_menu)
+except AttributeError:
+    pass  # Hook not available in older Anki versions
+
+# Feature 4/6: Reviewer card hooks for note-type styling and rotation
+try:
+    gui_hooks.reviewer_did_show_question.append(_on_reviewer_did_show_question)
+    gui_hooks.reviewer_did_show_answer.append(_on_reviewer_did_show_answer)
+except AttributeError:
+    pass

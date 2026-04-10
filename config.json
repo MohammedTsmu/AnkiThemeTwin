@@ -24,5 +24,32 @@
   "studyMode": "normal",
   "favoriteThemes": [],
   "themeTags": {},
-  "themeStats": {}
+  "themeStats": {},
+  "pomodoroSettings": {
+    "enabled": false,
+    "studyMinutes": 25,
+    "breakMinutes": 5,
+    "autoStart": false
+  },
+  "blueLightFilter": 0,
+  "syncEnabled": false,
+  "noteTypeStyles": {},
+  "zenMode": false,
+  "themeRotation": {
+    "enabled": false,
+    "themes": [],
+    "intervalCards": 10,
+    "intervalMinutes": 0
+  },
+  "customCSS": "",
+  "ambientLightAuto": {
+    "enabled": false,
+    "minFilter": 0,
+    "maxFilter": 60
+  },
+  "matchCardBackground": false,
+  "statusBarIndicator": true,
+  "seasonalThemes": {
+    "enabled": false
+  }
 }
