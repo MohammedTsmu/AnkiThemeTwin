@@ -1709,8 +1709,12 @@ def qss(p):
         color:{p['fg']};
     }}
 
-    /* Labels */
-    QLabel {{
+    /* Labels — use transparent background only inside known containers so that
+       top-level QLabel tooltips (Anki's CustomLabel with ToolTip window flag)
+       still receive a solid background from the QWidget rule or their palette. */
+    QDialog QLabel, QMainWindow QLabel, QGroupBox QLabel, QFrame > QLabel,
+    QToolBar QLabel, QStatusBar QLabel, QDockWidget QLabel, QTabWidget QLabel,
+    QScrollArea QLabel {{
         color:{p['fg']};
         background:transparent;
     }}
@@ -2368,6 +2372,15 @@ def refresh_all_webviews():
                 continue
         except (RuntimeError, AttributeError):
             continue
+
+        # Skip tooltip-type widgets (Anki's notification popup uses a QLabel
+        # with Qt.WindowType.ToolTip flag). Applying our full QSS to these
+        # transient windows breaks their appearance.
+        try:
+            if bool(widget.windowFlags() & Qt.WindowType.ToolTip):
+                continue
+        except (RuntimeError, AttributeError):
+            pass
 
         # Browser windows get special treatment — use targeted browser QSS only
         # (do NOT apply the full qss() which has a blanket QWidget rule that
