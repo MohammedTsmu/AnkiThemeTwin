@@ -126,8 +126,91 @@ def get_active_theme() -> Theme:
     cfg = get_config()
     return normalize_theme(cfg.get("currentTheme", "sepia_special"))
 
+def is_follow_system_theme() -> bool:
+    """Return True if the user wants Anki's native theme (no addon override)."""
+    cfg = get_config()
+    return cfg.get("followSystemTheme", False)
+
+def set_follow_system_theme(enabled: bool):
+    """Enable or disable follow-system-theme mode."""
+    cfg = get_config()
+    cfg["followSystemTheme"] = enabled
+    write_config(cfg)
+    if enabled:
+        _restore_system_theme()
+    else:
+        apply_theme_everywhere(get_active_theme())
+
+def _restore_system_theme():
+    """Remove all addon styling and let Anki/OS control the theme."""
+    # Clear application-level QSS
+    app = QApplication.instance()
+    if app:
+        try:
+            app.setStyleSheet("")
+        except (RuntimeError, AttributeError):
+            pass
+    # Clear main window QSS
+    try:
+        mw.setStyleSheet("")
+    except (RuntimeError, AttributeError):
+        pass
+    # Reset Anki's theme to follow system
+    try:
+        from aqt.theme import theme_manager
+        theme_manager.night_mode = theme_manager.default_night_mode()
+    except (ImportError, AttributeError):
+        try:
+            from aqt.theme import theme_manager
+            # Fallback: just leave night_mode as-is, Anki will fix on next change
+        except (ImportError, AttributeError):
+            pass
+    # Clear QSS from all open top-level widgets
+    try:
+        for widget in QApplication.instance().topLevelWidgets():
+            try:
+                if widget.isVisible():
+                    widget.setStyleSheet("")
+            except (RuntimeError, AttributeError):
+                continue
+    except (RuntimeError, AttributeError):
+        pass
+    # Refresh webviews to remove our injected CSS
+    _remove_addon_css_from_webviews()
+
 # ---------------- CSS / QSS ----------------
 _STYLE_ID = "ankithemetwin-style"
+
+def _remove_addon_css_from_webviews():
+    """Remove our injected CSS from all open webviews (used when follow-system-theme is on)."""
+    remove_js = (
+        "(function(){"
+        f"var el=document.getElementById('{_STYLE_ID}');"
+        "if(el){el.remove();}"
+        "})();"
+    )
+    for attr in ("web", "bottomWeb"):
+        wv = getattr(mw, attr, None)
+        if wv:
+            try:
+                wv.eval(remove_js)
+            except (RuntimeError, AttributeError):
+                pass
+    app = QApplication.instance()
+    if app:
+        try:
+            from aqt.qt import QWebEngineView
+            for widget in app.topLevelWidgets():
+                try:
+                    for wv in widget.findChildren(QWebEngineView):
+                        try:
+                            wv.page().runJavaScript(remove_js)
+                        except (RuntimeError, AttributeError):
+                            pass
+                except (RuntimeError, AttributeError):
+                    pass
+        except (ImportError, RuntimeError):
+            pass
 
 def get_font_size() -> int:
     """Get configured font size, default 16px."""
@@ -403,6 +486,8 @@ def css_vars(p):
 
 def inject_css(web_content, ctx):
     """Inject CSS into webviews with context-specific enhancements."""
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
     p = palette_for(theme)
 
@@ -454,8 +539,8 @@ def inject_css(web_content, ctx):
         .nightMode .stattxt, .night_mode .stattxt {{ color:{p['fg']} !important; }}
         """
 
-    # Editor - note editing
-    elif "Editor" in ctx_name:
+    # Editor or AddCards - note editing
+    elif "Editor" in ctx_name or "AddCards" in ctx_name or "NoteEditor" in ctx_name:
         context_css += f"""
         /* Editor specific */
         .fname {{ color:{p['muted']} !important; font-size:12px; }}
@@ -606,6 +691,12 @@ def qss(p):
         background:{p['bg']};
         color:{p['fg']};
         font-size:14px;
+    }}
+
+    /* Main window and stacked layouts */
+    QMainWindow, QStackedWidget, QStackedLayout {{
+        background:{p['bg']};
+        color:{p['fg']};
     }}
 
     /* Buttons */
@@ -919,9 +1010,16 @@ def qss(p):
         background:{p['muted']};
     }}
 
+    /* Frames — critical for AddCards/EditCurrent toolbar areas */
+    QFrame {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+
     /* Labels */
     QLabel {{
         color:{p['fg']};
+        background:transparent;
     }}
 
     /* Spin boxes */
@@ -1049,6 +1147,8 @@ def on_theme_did_change():
     Uses delayed re-assertions because Anki continues to reload webviews
     and re-apply its own styles AFTER this hook fires.
     """
+    if is_follow_system_theme():
+        return
     # Guard against recursive calls
     if getattr(mw, "_ankitwin_theme_changing", False):
         return
@@ -1080,6 +1180,8 @@ def on_theme_did_change():
 # ---------------- Browser-specific Qt widget theming ----------------
 def on_browser_will_show(browser):
     """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter)."""
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
     p = palette_for(theme)
 
@@ -1209,12 +1311,29 @@ def on_browser_will_show(browser):
     /* Labels in browser */
     QLabel {{
         color:{p['fg']};
+        background:transparent;
     }}
 
-    /* General background for the Browser window */
-    QWidget {{
+    /* General background for the Browser window frame (not webviews) */
+    QSplitter > QWidget {{
         background:{p['bg']};
         color:{p['fg']};
+    }}
+    QToolBar > QWidget {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+    QFrame {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+    QMenuBar {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+    QStatusBar {{
+        background:{p['bg']};
+        color:{p['muted']};
     }}
 
     /* Scrollbars in browser */
@@ -1314,6 +1433,8 @@ def _build_shadow_dom_js(theme: Theme) -> str:
 
 def on_editor_did_load_note(editor):
     """Inject shadow DOM styles when editor loads a note."""
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
     js = _build_shadow_dom_js(theme)
     try:
@@ -1345,6 +1466,8 @@ def refresh_all_webviews():
     Covers: main window webviews, Browser, AddCards, EditCurrent,
     Stats, and any other open dialog with webviews or editors.
     """
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
     p = palette_for(theme)
     js = _build_refresh_js(theme)
@@ -1394,14 +1517,9 @@ def refresh_all_webviews():
         except (RuntimeError, AttributeError):
             continue
 
-        # Re-apply QSS to every visible top-level window so Qt widgets
-        # (menus, labels, inputs, etc.) get our theme colors
-        try:
-            widget.setStyleSheet(qss(p))
-        except (RuntimeError, AttributeError):
-            pass
-
-        # Browser windows get special treatment
+        # Browser windows get special treatment — use targeted browser QSS only
+        # (do NOT apply the full qss() which has a blanket QWidget rule that
+        # conflicts with webview components and loses font/label colors)
         if Browser and isinstance(widget, Browser):
             on_browser_will_show(widget)
             if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
@@ -1410,7 +1528,23 @@ def refresh_all_webviews():
                     widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
                 except (RuntimeError, AttributeError):
                     pass
+            # Also refresh any other webviews inside the browser (e.g. card preview)
+            try:
+                from aqt.qt import QWebEngineView
+                for wv in widget.findChildren(QWebEngineView):
+                    try:
+                        wv.page().runJavaScript(js)
+                    except (RuntimeError, AttributeError):
+                        pass
+            except (ImportError, RuntimeError, AttributeError):
+                pass
             continue
+
+        # Re-apply QSS to every visible non-Browser top-level window
+        try:
+            widget.setStyleSheet(qss(p))
+        except (RuntimeError, AttributeError):
+            pass
 
         # Find any webview (QWebEngineView) inside the widget and eval our CSS
         try:
@@ -1436,6 +1570,9 @@ def refresh_all_webviews():
 
 def apply_theme_everywhere(theme: Theme):
     """Apply QSS + force theme mode + refresh all webviews in one call."""
+    if is_follow_system_theme():
+        _restore_system_theme()
+        return
     force_anki_theme_mode(theme)
     apply_qt_styles(theme)
 
@@ -2758,6 +2895,8 @@ def set_theme(theme: Theme):
     theme = normalize_theme(theme)
     cfg = get_config()
     cfg["currentTheme"] = theme
+    # Selecting a theme implicitly disables follow-system-theme
+    cfg["followSystemTheme"] = False
     write_config(cfg)
     apply_theme_everywhere(theme)
     # Record usage statistics
@@ -2775,6 +2914,20 @@ def set_font_size(size: int):
 
 def add_menu():
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
+
+    # ---- Follow System Theme toggle ----
+    actFollow = QAction("Follow System Theme (Disable Addon Theming)", mw, checkable=True)
+    actFollow.setChecked(is_follow_system_theme())
+    def toggle_follow_system(checked):
+        set_follow_system_theme(checked)
+        if checked:
+            tooltip("🖥️ Following system/Anki theme — addon theming disabled", period=2000)
+        else:
+            tooltip("🎨 Addon theming enabled", period=2000)
+    actFollow.triggered.connect(toggle_follow_system)
+    m.addAction(actFollow)
+
+    m.addSeparator()
 
     # ---- Direct theme choices ----
     for label, key in THEME_OPTIONS:
