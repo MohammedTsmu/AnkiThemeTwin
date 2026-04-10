@@ -2,6 +2,20 @@
 
 All notable changes to AnkiThemeTwin will be documented in this file.
 
+## [1.5.1] - 2026-04-10
+
+### Fixed - Windows 11 Dark/Light Theme Override
+
+#### Anki ThemeManager Override
+- **`force_anki_theme_mode()`**: Forces `theme_manager.night_mode` to match our theme (light/dark), preventing Windows 11 dark mode from overriding addon colors
+- **Qt `QPalette` override**: Forces the Qt application palette to use our theme colors, preventing OS dark palette from bleeding into native widgets (sidebar, table, inputs)
+- **`theme_did_change` hook**: Re-applies addon theme whenever Anki detects an OS theme change (Windows dark↔light switch), so the addon always retains control
+
+#### Night Mode CSS Neutralization
+- **`.nightMode` / `.night_mode` body class overrides**: Added comprehensive CSS rules that override Anki's dark mode body class styling for all elements (cards, inputs, tables, fields, text, buttons)
+- **Reviewer night mode overrides**: Ensures card content, answer text, and bottom bar remain visible with correct font colors in dark OS mode
+- **All webview contexts**: Night mode overrides apply to all contexts (DeckBrowser, Reviewer, Editor, Overview, Browser, Toolbar)
+
 ## [1.5.0] - 2026-04-10
 
 ### Fixed - Browser Window Complete Theming

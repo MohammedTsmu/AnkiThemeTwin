@@ -1,4 +1,4 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.4.0
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.5.1
 # Enhanced theming with keyboard shortcuts, more font sizes, theme presets, and custom theme creator
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
@@ -9,7 +9,7 @@ from aqt.qt import (
     QSlider, QColorDialog, QLineEdit, QSpinBox, QScrollArea,
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
     QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
-    QRadioButton,
+    QRadioButton, QPalette, QColor,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
@@ -17,7 +17,7 @@ import json
 import os
 from datetime import datetime, time
 
-VERSION = "1.4.0"
+VERSION = "1.5.1"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
@@ -213,6 +213,35 @@ def css_vars(p):
         f"  --window-bg: {p['bg']} !important;"
         f"  --window-fg: {p['fg']} !important;"
         "}"
+        # Override nightMode/night_mode body classes that Anki applies in dark mode
+        # This ensures our theme colors win even when OS is in dark mode
+        f"body.nightMode, body.night_mode, .nightMode, .night_mode {{"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        "}}"
+        f".nightMode .card, .night_mode .card {{"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        "}}"
+        f".nightMode a, .night_mode a {{ color:{p['accent']} !important; }}"
+        f".nightMode button, .night_mode button {{"
+        f"  background:{p['button']} !important; color:{p['buttonText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode input, .nightMode textarea, .nightMode select,"
+        f".night_mode input, .night_mode textarea, .night_mode select {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode table, .night_mode table {{ background:{p['bg']} !important; }}"
+        f".nightMode th, .night_mode th {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}"
+        f".nightMode td, .night_mode td {{ color:{p['fg']} !important; border-color:{p['border']} !important; }}"
+        f".nightMode tr:hover, .night_mode tr:hover {{ background:{p['hover']} !important; }}"
+        f".nightMode .field, .night_mode .field {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode [contenteditable], .night_mode [contenteditable] {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        "}}"
         # Base styles with smooth transitions
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
@@ -405,14 +434,24 @@ def inject_css(web_content, ctx):
     # Reviewer - card display
     elif "Reviewer" in ctx_name or "Review" in ctx_name:
         context_css += f"""
-        /* Reviewer specific */
+        /* Reviewer specific - override nightMode comprehensively */
         #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
-        .nightMode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode .card, .night_mode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode #qa, .night_mode #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode #answer, .night_mode #answer {{ color:{p['fg']} !important; }}
+        .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
         #answer {{ color:{p['fg']} !important; }}
         .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
         .typeGood {{ color:{p['accent']} !important; }}
         .typeBad {{ color:#E74C3C !important; }}
         .typeMissed {{ color:#F39C12 !important; }}
+        /* Ensure all text in reviewer is visible */
+        .nightMode p, .nightMode span, .nightMode div, .nightMode li,
+        .night_mode p, .night_mode span, .night_mode div, .night_mode li {{
+            color:{p['fg']} !important;
+        }}
+        /* Bottom bar answer buttons */
+        .nightMode .stattxt, .night_mode .stattxt {{ color:{p['fg']} !important; }}
         """
 
     # Editor - note editing
@@ -915,6 +954,81 @@ def apply_qt_styles(theme: Theme):
     if app:
         app.setStyleSheet(qss(palette_for(theme)))
 
+def _build_qt_palette(p: dict) -> QPalette:
+    """Build a QPalette from our theme colors to override the OS/Qt dark palette."""
+    pal = QPalette()
+    pal.setColor(QPalette.ColorRole.Window, QColor(p['bg']))
+    pal.setColor(QPalette.ColorRole.WindowText, QColor(p['fg']))
+    pal.setColor(QPalette.ColorRole.Base, QColor(p['input']))
+    pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['bg']))
+    pal.setColor(QPalette.ColorRole.ToolTipBase, QColor(p['button']))
+    pal.setColor(QPalette.ColorRole.ToolTipText, QColor(p['buttonText']))
+    pal.setColor(QPalette.ColorRole.Text, QColor(p['inputText']))
+    pal.setColor(QPalette.ColorRole.Button, QColor(p['button']))
+    pal.setColor(QPalette.ColorRole.ButtonText, QColor(p['buttonText']))
+    pal.setColor(QPalette.ColorRole.BrightText, QColor(p['accent']))
+    pal.setColor(QPalette.ColorRole.Link, QColor(p['accent']))
+    pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
+    pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
+    pal.setColor(QPalette.ColorRole.PlaceholderText, QColor(p['muted']))
+    pal.setColor(QPalette.ColorRole.Light, QColor(p['hover']))
+    pal.setColor(QPalette.ColorRole.Midlight, QColor(p['border']))
+    pal.setColor(QPalette.ColorRole.Mid, QColor(p['muted']))
+    pal.setColor(QPalette.ColorRole.Dark, QColor(p['muted']))
+    pal.setColor(QPalette.ColorRole.Shadow, QColor(p['border']))
+    return pal
+
+def force_anki_theme_mode(theme: Theme):
+    """Force Anki's ThemeManager to use the correct mode for our theme.
+
+    When Windows switches between dark/light mode, Anki's ThemeManager detects
+    this and overrides our colors. We must force night_mode to match our theme
+    and override the Qt application palette to prevent OS theme from bleeding in.
+    """
+    p = palette_for(theme)
+
+    # Determine if our theme is dark or light based on background luminance
+    bg = p['bg']
+    # Parse hex color to get luminance
+    r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    is_dark_theme = luminance < 0.5
+
+    # Force Anki's ThemeManager night_mode to match our theme
+    try:
+        from aqt.theme import theme_manager
+        theme_manager.night_mode = is_dark_theme
+    except (ImportError, AttributeError):
+        pass
+
+    # Force Qt application palette to use our colors
+    app = QApplication.instance()
+    if app:
+        try:
+            app.setPalette(_build_qt_palette(p))
+        except (RuntimeError, AttributeError):
+            pass
+
+def on_theme_did_change():
+    """Called when Anki's theme changes (e.g. OS dark/light switch).
+
+    Re-assert our addon theme to prevent Anki's ThemeManager from
+    overriding our colors when the OS theme changes.
+    """
+    # Guard against recursive calls
+    if getattr(mw, "_ankitwin_theme_changing", False):
+        return
+    mw._ankitwin_theme_changing = True
+    try:
+        theme = get_active_theme()
+        force_anki_theme_mode(theme)
+        apply_qt_styles(theme)
+        refresh_all_webviews()
+    finally:
+        # Use a timer to reset the guard after a short delay
+        from aqt.qt import QTimer
+        QTimer.singleShot(500, lambda: setattr(mw, "_ankitwin_theme_changing", False))
+
 # ---------------- Browser-specific Qt widget theming ----------------
 def on_browser_will_show(browser):
     """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter)."""
@@ -1208,7 +1322,8 @@ def refresh_all_webviews():
         pass
 
 def apply_theme_everywhere(theme: Theme):
-    """Apply QSS + refresh all webviews in one call."""
+    """Apply QSS + force theme mode + refresh all webviews in one call."""
+    force_anki_theme_mode(theme)
     apply_qt_styles(theme)
     refresh_all_webviews()
 
@@ -2718,3 +2833,4 @@ gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
 gui_hooks.browser_will_show.append(on_browser_will_show)
 gui_hooks.editor_did_load_note.append(on_editor_did_load_note)
+gui_hooks.theme_did_change.append(on_theme_did_change)
