@@ -1,5 +1,28 @@
 {
   "currentTheme": "sepia_special",
   "fontSize": 16,
-  "followSystemTheme": false
+  "followSystemTheme": false,
+  "fontFamily": "Segoe UI,Amiri,Arial,sans-serif",
+  "lineHeight": 1.58,
+  "letterSpacing": 0.0,
+  "presets": [],
+  "customThemes": {},
+  "scheduledThemes": {
+    "enabled": false,
+    "morning": {"time": "07:00", "theme": "sepia_word"},
+    "afternoon": {"time": "12:00", "theme": "sepia_special"},
+    "evening": {"time": "18:00", "theme": "blue_light"},
+    "night": {"time": "23:00", "theme": "gray_word"}
+  },
+  "deckThemes": {},
+  "animations": {
+    "enabled": true,
+    "duration": 300,
+    "style": "fade"
+  },
+  "backgroundPattern": "none",
+  "studyMode": "normal",
+  "favoriteThemes": [],
+  "themeTags": {},
+  "themeStats": {}
 }
