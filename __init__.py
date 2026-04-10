@@ -1,4 +1,4 @@
-# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.4.0
+# AnkiThemeTwin/__init__.py — Anki 25.x (Qt6/PyQt6) — v1.5.2
 # Enhanced theming with keyboard shortcuts, more font sizes, theme presets, and custom theme creator
 # Tools > Theme: AnkiThemeTwin  |  Help > About AnkiThemeTwin
 
@@ -9,7 +9,7 @@ from aqt.qt import (
     QSlider, QColorDialog, QLineEdit, QSpinBox, QScrollArea,
     QWidget, QGridLayout, QComboBox, QCheckBox, QTextEdit,
     QShortcut, QKeySequence, QFrame, QTimeEdit, QButtonGroup,
-    QRadioButton,
+    QRadioButton, QPalette, QColor,
 )
 from aqt.utils import openLink, showInfo, tooltip
 from typing import Literal, Any, Optional
@@ -17,7 +17,7 @@ import json
 import os
 from datetime import datetime, time
 
-VERSION = "1.4.0"
+VERSION = "1.5.2"
 
 Theme = Literal[
     "sepia_word", "sepia_paper", "gray_word", "gray_paper",
@@ -126,8 +126,87 @@ def get_active_theme() -> Theme:
     cfg = get_config()
     return normalize_theme(cfg.get("currentTheme", "sepia_special"))
 
+def is_follow_system_theme() -> bool:
+    """Return True if the user wants Anki's native theme (no addon override)."""
+    cfg = get_config()
+    return cfg.get("followSystemTheme", False)
+
+def set_follow_system_theme(enabled: bool):
+    """Enable or disable follow-system-theme mode."""
+    cfg = get_config()
+    cfg["followSystemTheme"] = enabled
+    write_config(cfg)
+    if enabled:
+        _restore_system_theme()
+    else:
+        apply_theme_everywhere(get_active_theme())
+
+def _restore_system_theme():
+    """Remove all addon styling and let Anki/OS control the theme."""
+    # Clear application-level QSS
+    app = QApplication.instance()
+    if app:
+        try:
+            app.setStyleSheet("")
+        except (RuntimeError, AttributeError):
+            pass
+    # Clear main window QSS
+    try:
+        mw.setStyleSheet("")
+    except (RuntimeError, AttributeError):
+        pass
+    # Reset Anki's theme to follow system
+    try:
+        from aqt.theme import theme_manager
+        theme_manager.night_mode = theme_manager.default_night_mode()
+    except (ImportError, AttributeError):
+        pass  # Leave night_mode as-is, Anki will fix on next theme change
+    # Clear QSS from all open top-level widgets
+    try:
+        for widget in QApplication.instance().topLevelWidgets():
+            try:
+                if widget.isVisible():
+                    widget.setStyleSheet("")
+            except (RuntimeError, AttributeError):
+                continue
+    except (RuntimeError, AttributeError):
+        pass
+    # Refresh webviews to remove our injected CSS
+    _remove_addon_css_from_webviews()
+
 # ---------------- CSS / QSS ----------------
 _STYLE_ID = "ankithemetwin-style"
+
+def _remove_addon_css_from_webviews():
+    """Remove our injected CSS from all open webviews (used when follow-system-theme is on)."""
+    remove_js = (
+        "(function(){"
+        f"var el=document.getElementById('{_STYLE_ID}');"
+        "if(el){el.remove();}"
+        "})();"
+    )
+    for attr in ("web", "bottomWeb"):
+        wv = getattr(mw, attr, None)
+        if wv:
+            try:
+                wv.eval(remove_js)
+            except (RuntimeError, AttributeError):
+                pass
+    app = QApplication.instance()
+    if app:
+        try:
+            from aqt.qt import QWebEngineView
+            for widget in app.topLevelWidgets():
+                try:
+                    for wv in widget.findChildren(QWebEngineView):
+                        try:
+                            wv.page().runJavaScript(remove_js)
+                        except (RuntimeError, AttributeError):
+                            pass
+                except (RuntimeError, AttributeError):
+                    pass
+        except (ImportError, RuntimeError):
+            pass
 
 def get_font_size() -> int:
     """Get configured font size, default 16px."""
@@ -164,6 +243,99 @@ def css_vars(p):
         transitions = f"transition: all {duration}ms ease-in-out;"
 
     return (
+        # Override Anki's built-in CSS custom properties used by Svelte components
+        # This ensures ThemeManager colors are replaced with our theme colors
+        ":root {"
+        f"  --canvas: {p['bg']} !important;"
+        f"  --canvas-elevated: {p['input']} !important;"
+        f"  --canvas-overlay: {p['bg']} !important;"
+        f"  --canvas-inset: {p['input']} !important;"
+        f"  --canvas-glass: {p['bg']}ee !important;"
+        f"  --canvas-code: {p['input']} !important;"
+        f"  --fg: {p['fg']} !important;"
+        f"  --fg-subtle: {p['muted']} !important;"
+        f"  --fg-disabled: {p['muted']} !important;"
+        f"  --fg-faint: {p['border']} !important;"
+        f"  --fg-link: {p['accent']} !important;"
+        f"  --shadow: rgba(0,0,0,0.1) !important;"
+        f"  --shadow-inset: rgba(0,0,0,0.05) !important;"
+        f"  --shadow-subtle: rgba(0,0,0,0.03) !important;"
+        f"  --shadow-focus: {p['accent']}33 !important;"
+        f"  --border: {p['border']} !important;"
+        f"  --border-subtle: {p['border']} !important;"
+        f"  --border-strong: {p['muted']} !important;"
+        f"  --border-focus: {p['accent']} !important;"
+        f"  --button-bg: {p['button']} !important;"
+        f"  --button-hover: {p['hover']} !important;"
+        f"  --button-hover-border: {p['accent']} !important;"
+        f"  --button-active: {p['selection']} !important;"
+        f"  --button-disabled: {p['border']} !important;"
+        f"  --button-gradient-start: {p['button']} !important;"
+        f"  --button-gradient-end: {p['hover']} !important;"
+        f"  --button-primary-bg: {p['accent']} !important;"
+        f"  --button-primary-fg: {p['bg']} !important;"
+        f"  --button-primary-gradient-start: {p['accent']} !important;"
+        f"  --button-primary-gradient-end: {p['accent']} !important;"
+        f"  --button-primary-disabled: {p['muted']} !important;"
+        f"  --scrollbar-bg: transparent !important;"
+        f"  --scrollbar-bg-hover: {p['hover']} !important;"
+        f"  --scrollbar-bg-active: {p['selection']} !important;"
+        f"  --accent-card: {p['accent']} !important;"
+        f"  --accent-note: {p['accent']} !important;"
+        f"  --accent-danger: #E74C3C !important;"
+        f"  --badge-bg: {p['button']} !important;"
+        f"  --badge-fg: {p['buttonText']} !important;"
+        f"  --highlight-bg: {p['selection']} !important;"
+        f"  --highlight-fg: {p['fg']} !important;"
+        f"  --selected-bg: {p['selection']} !important;"
+        f"  --selected-fg: {p['fg']} !important;"
+        f"  --frame-bg: {p['input']} !important;"
+        f"  --window-bg: {p['bg']} !important;"
+        f"  --window-fg: {p['fg']} !important;"
+        # Additional properties used by Anki's editor/browser Svelte components
+        f"  --pane-bg: {p['bg']} !important;"
+        f"  --surface-bg: {p['bg']} !important;"
+        # Editor text color properties
+        f"  --text-fg: {p['fg']} !important;"
+        f"  --editor-fg: {p['inputText']} !important;"
+        f"  --field-bg: {p['input']} !important;"
+        f"  --flag-1: #E74C3C !important;"
+        f"  --flag-2: #E67E22 !important;"
+        f"  --flag-3: #2ECC71 !important;"
+        f"  --flag-4: #3498DB !important;"
+        f"  --flag-5: #FF69B4 !important;"
+        f"  --flag-6: #40E0D0 !important;"
+        f"  --flag-7: #9B59B6 !important;"
+        "}"
+        # Override nightMode/night_mode body classes that Anki applies in dark mode
+        # This ensures our theme colors win even when OS is in dark mode
+        f"body.nightMode, body.night_mode, .nightMode, .night_mode {{"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        "}}"
+        f".nightMode .card, .night_mode .card {{"
+        f"  background:{p['bg']} !important; color:{p['fg']} !important;"
+        "}}"
+        f".nightMode a, .night_mode a {{ color:{p['accent']} !important; }}"
+        f".nightMode button, .night_mode button {{"
+        f"  background:{p['button']} !important; color:{p['buttonText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode input, .nightMode textarea, .nightMode select,"
+        f".night_mode input, .night_mode textarea, .night_mode select {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode table, .night_mode table {{ background:{p['bg']} !important; }}"
+        f".nightMode th, .night_mode th {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}"
+        f".nightMode td, .night_mode td {{ color:{p['fg']} !important; border-color:{p['border']} !important; }}"
+        f".nightMode tr:hover, .night_mode tr:hover {{ background:{p['hover']} !important; }}"
+        f".nightMode .field, .night_mode .field {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        f"  border-color:{p['border']} !important;"
+        "}}"
+        f".nightMode [contenteditable], .night_mode [contenteditable] {{"
+        f"  background:{p['input']} !important; color:{p['inputText']} !important;"
+        "}}"
         # Base styles with smooth transitions
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
@@ -325,6 +497,8 @@ def css_vars(p):
 
 def inject_css(web_content, ctx):
     """Inject CSS into webviews with context-specific enhancements."""
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
     p = palette_for(theme)
 
@@ -356,18 +530,28 @@ def inject_css(web_content, ctx):
     # Reviewer - card display
     elif "Reviewer" in ctx_name or "Review" in ctx_name:
         context_css += f"""
-        /* Reviewer specific */
+        /* Reviewer specific - override nightMode comprehensively */
         #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
-        .nightMode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode .card, .night_mode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode #qa, .night_mode #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        .nightMode #answer, .night_mode #answer {{ color:{p['fg']} !important; }}
+        .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
         #answer {{ color:{p['fg']} !important; }}
         .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
         .typeGood {{ color:{p['accent']} !important; }}
         .typeBad {{ color:#E74C3C !important; }}
         .typeMissed {{ color:#F39C12 !important; }}
+        /* Ensure all text in reviewer is visible */
+        .nightMode p, .nightMode span, .nightMode div, .nightMode li,
+        .night_mode p, .night_mode span, .night_mode div, .night_mode li {{
+            color:{p['fg']} !important;
+        }}
+        /* Bottom bar answer buttons */
+        .nightMode .stattxt, .night_mode .stattxt {{ color:{p['fg']} !important; }}
         """
 
-    # Editor - note editing
-    elif "Editor" in ctx_name:
+    # Editor or AddCards - note editing
+    elif "Editor" in ctx_name or "AddCards" in ctx_name or "NoteEditor" in ctx_name:
         context_css += f"""
         /* Editor specific */
         .fname {{ color:{p['muted']} !important; font-size:12px; }}
@@ -391,6 +575,31 @@ def inject_css(web_content, ctx):
         .richTextButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
         .richTextButton:hover {{ background:{p['hover']} !important; }}
         .richTextButton.highlighted {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Svelte NoteEditor component overrides */
+        .editor-toolbar {{ background:{p['bg']} !important; border-bottom:1px solid {p['border']} !important; }}
+        .editor-toolbar button {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .editor-toolbar button:hover {{ background:{p['hover']} !important; }}
+        .editor-toolbar button.active, .editor-toolbar button[class*="active"] {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Field labels (Front, Back, etc.) */
+        .label-name, .field-label, [class*="label"] {{ color:{p['muted']} !important; }}
+        /* Collapsible field headers */
+        .collapse-icon {{ color:{p['muted']} !important; }}
+        .fields-collapse {{ background:{p['bg']} !important; }}
+        /* Tag editor Svelte component */
+        .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
+        .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
+        .tag-editor .tag-container {{ background:{p['bg']} !important; }}
+        .tag-editor .tag-chip, .tag-pill {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; border-radius:3px; }}
+        .tag-editor .tag-chip:hover, .tag-pill:hover {{ background:{p['hover']} !important; }}
+        /* Note type / deck selector buttons in editor */
+        .note-type-selector, .deck-selector {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .note-type-selector:hover, .deck-selector:hover {{ background:{p['hover']} !important; }}
+        /* Plain/rich text toggle and field expansion buttons */
+        .plain-text-badge {{ background:{p['button']} !important; color:{p['muted']} !important; border:1px solid {p['border']} !important; }}
+        .plain-text-badge:hover {{ background:{p['hover']} !important; }}
+        /* Editor field containers */
+        .editor-field {{ background:{p['input']} !important; border:1px solid {p['border']} !important; border-radius:4px; }}
+        .editor-field:focus-within {{ border-color:{p['accent']} !important; box-shadow:0 0 0 3px {p['accent']}33 !important; }}
         """
 
     # Overview - deck overview
@@ -403,21 +612,51 @@ def inject_css(web_content, ctx):
     # Browser - card browser
     elif "Browser" in ctx_name:
         context_css += f"""
-        /* Browser specific */
+        /* Browser specific webview styling */
         .browser-table {{ background:{p['bg']} !important; }}
         .search {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         .cell {{ color:{p['fg']} !important; }}
         .browserRow {{ background:{p['bg']} !important; }}
         .browserRow:hover {{ background:{p['hover']} !important; }}
-        /* Browser sidebar */
+        /* Browser sidebar webview elements */
         .sidebar {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
         .sidebar-item {{ color:{p['fg']} !important; padding:4px 8px; }}
         .sidebar-item:hover {{ background:{p['hover']} !important; }}
-        .sidebar-item.selected {{ background:{p['selection']} !important; }}
+        .sidebar-item.selected, .sidebar-item.highlighted {{ background:{p['selection']} !important; color:{p['fg']} !important; }}
         /* Browser toolbar */
         #searchEdit {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
-        /* Card preview in browser */
+        /* Card preview/details in browser right panel */
         #previewArea {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Editor fields/labels on right side of browser */
+        .fname {{ color:{p['muted']} !important; font-size:12px; }}
+        .field {{ min-height:40px !important; background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .EditorField {{ background:{p['input']} !important; color:{p['inputText']} !important; }}
+        .editor-field {{ background:{p['input']} !important; border:1px solid {p['border']} !important; border-radius:4px; color:{p['inputText']} !important; }}
+        .editor-field:focus-within {{ border-color:{p['accent']} !important; }}
+        .editor-toolbar {{ background:{p['bg']} !important; border-bottom:1px solid {p['border']} !important; }}
+        .editor-toolbar button {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}
+        .editor-toolbar button:hover {{ background:{p['hover']} !important; }}
+        .label-name, .field-label, [class*="label"] {{ color:{p['muted']} !important; }}
+        .collapse-icon {{ color:{p['muted']} !important; }}
+        .fields-collapse {{ background:{p['bg']} !important; }}
+        /* Rich-text-input container (Anki's Svelte component) */
+        .rich-text-input {{ background-color:{p['input']} !important; color:{p['inputText']} !important; }}
+        .rich-text-editable {{ color:{p['inputText']} !important; }}
+        /* Force ALL text inside editor fields to use theme color */
+        .field *, .EditorField *, .editor-field *, .rich-text-input *, .rich-text-editable * {{ color:{p['inputText']} !important; }}
+        /* Override content with inline style colors (from card templates) */
+        .field *[style], .EditorField *[style], .editor-field *[style] {{ color:{p['inputText']} !important; }}
+        .field font, .EditorField font, .editor-field font {{ color:{p['inputText']} !important; }}
+        /* Tag editor in browser */
+        .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
+        .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
+        .tag-editor .tag-chip, .tag-pill {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; border-radius:3px; }}
+        .tag-editor .tag-chip:hover, .tag-pill:hover {{ background:{p['hover']} !important; }}
+        /* Note type/deck selectors in browser editor */
+        .note-type-selector, .deck-selector {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .note-type-selector:hover, .deck-selector:hover {{ background:{p['hover']} !important; }}
+        .plain-text-badge {{ background:{p['button']} !important; color:{p['muted']} !important; border:1px solid {p['border']} !important; }}
+        .plain-text-badge:hover {{ background:{p['hover']} !important; }}
         /* Suspended and marked cards */
         .suspended {{ color:{p['muted']} !important; opacity:0.7; }}
         .marked {{ color:{p['accent']} !important; }}
@@ -425,6 +664,18 @@ def inject_css(web_content, ctx):
         th.browser-header {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
         /* Filter bar */
         .filterBar {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; padding:8px; }}
+        /* Pane/panel backgrounds for card details */
+        .pane {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        [class*="pane"] {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Rich text buttons in browser editor */
+        .richTextButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        .richTextButton:hover {{ background:{p['hover']} !important; }}
+        .richTextButton.highlighted {{ background:{p['accent']} !important; color:{p['bg']} !important; }}
+        /* Svelte component overrides */
+        .tag {{ background:{p['button']} !important; color:{p['buttonText']} !important; }}
+        .fieldButton {{ background:{p['button']} !important; color:{p['buttonText']} !important; border:1px solid {p['border']} !important; }}
+        #notetype {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
+        #deck {{ background:{p['input']} !important; color:{p['inputText']} !important; border:1px solid {p['border']} !important; }}
         """
 
     # Toolbar and bottom bars
@@ -440,6 +691,80 @@ def inject_css(web_content, ctx):
     # Inject into page
     web_content.head += f'<style id="{_STYLE_ID}">{full_css}</style>'
 
+    # For Editor/AddCards/Browser contexts, inject JavaScript to style Shadow DOM elements
+    # (Browser has an editor panel on the right side with shadow DOM fields)
+    if "Editor" in ctx_name or "AddCards" in ctx_name or "Browser" in ctx_name or "NoteEditor" in ctx_name:
+        shadow_css_content = (
+            f":host {{ background:{p['input']} !important; "
+            f"color:{p['inputText']} !important; "
+            f"font-family:{get_font_family()} !important; "
+            f"font-size:{get_font_size()}px !important; "
+            f"line-height:{get_line_height()} !important; "
+            f"letter-spacing:{get_letter_spacing()}px !important; "
+            f"caret-color:{p['fg']} !important; "
+            f"padding:8px !important; }} "
+            # Force color on all elements, including inline-styled content
+            f"*, *[style] {{ color:{p['inputText']} !important; }} "
+            # Override Anki's own anki-editable rule (RichTextStyles sets color:white in dark mode)
+            f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }} "
+            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }} "
+            # Override legacy font tags and inline color spans from card content
+            f"font, font[color] {{ color:{p['inputText']} !important; }} "
+            f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
+        )
+        shadow_css_json = json.dumps(shadow_css_content)
+        input_text_json = json.dumps(p['inputText'])
+        input_bg_json = json.dumps(p['input'])
+        shadow_js = (
+            "<script>"
+            "(function(){"
+            "  function styleShadowRoots(){"
+            "    document.querySelectorAll('anki-editable').forEach(function(el){"
+            "      if(el.shadowRoot){"
+            "        var sid='ankithemetwin-shadow';"
+            "        var existing=el.shadowRoot.getElementById(sid);"
+            "        if(existing){existing.remove();}"
+            "        var s=document.createElement('style');"
+            "        s.id=sid;"
+            f"        s.textContent={shadow_css_json};"
+            "        el.shadowRoot.appendChild(s);"
+            # Also patch Anki's own CSSStyleRules that target anki-editable
+            "        try{"
+            "          var sheets=el.shadowRoot.styleSheets||[];"
+            "          for(var i=0;i<sheets.length;i++){"
+            "            try{"
+            "              var rules=sheets[i].cssRules||[];"
+            "              for(var j=0;j<rules.length;j++){"
+            "                if(rules[j].selectorText&&rules[j].selectorText.indexOf('anki-editable')>=0){"
+            f"                  rules[j].style.color={input_text_json};"
+            f"                  rules[j].style.background={input_bg_json};"
+            "                }"
+            "              }"
+            "            }catch(e2){}"
+            "          }"
+            "        }catch(e1){}"
+            "      }"
+            "    });"
+            "  }"
+            "  /* Run after DOM is ready and observe for dynamically added fields */"
+            "  if(document.readyState==='complete'){"
+            "    setTimeout(styleShadowRoots,100);"
+            "    setTimeout(styleShadowRoots,500);"
+            "    setTimeout(styleShadowRoots,1000);"
+            "  }else{"
+            "    window.addEventListener('load',function(){"
+            "      setTimeout(styleShadowRoots,100);"
+            "      setTimeout(styleShadowRoots,500);"
+            "      setTimeout(styleShadowRoots,1000);"
+            "    });"
+            "  }"
+            "  var obs=new MutationObserver(function(){setTimeout(styleShadowRoots,50);});"
+            "  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
+            "})();"
+            "</script>"
+        )
+        web_content.head += shadow_js
+
 def qss(p):
     """Generate comprehensive Qt Style Sheets for all Qt widgets."""
     return f"""
@@ -448,6 +773,12 @@ def qss(p):
         background:{p['bg']};
         color:{p['fg']};
         font-size:14px;
+    }}
+
+    /* Main window and stacked layouts */
+    QMainWindow, QStackedWidget, QStackedLayout {{
+        background:{p['bg']};
+        color:{p['fg']};
     }}
 
     /* Buttons */
@@ -519,8 +850,36 @@ def qss(p):
         selection-background-color:{p['selection']};
         selection-color:{p['fg']};
     }}
+    QTableView::item, QListView::item, QTreeView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
     QTableView::item:hover, QListView::item:hover, QTreeView::item:hover {{
         background:{p['hover']};
+    }}
+    QTableView::item:selected, QListView::item:selected, QTreeView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+    /* QTreeView branch indicators for sidebar tree */
+    QTreeView::branch {{
+        background:{p['bg']};
+    }}
+    QTreeView::branch:hover {{
+        background:{p['hover']};
+    }}
+    QTreeView::branch:selected {{
+        background:{p['selection']};
+    }}
+    QTreeView::branch:has-children:!has-siblings:closed,
+    QTreeView::branch:closed:has-children:has-siblings {{
+        border-image:none;
+        image:none;
+    }}
+    QTreeView::branch:open:has-children:!has-siblings,
+    QTreeView::branch:open:has-children:has-siblings {{
+        border-image:none;
+        image:none;
     }}
     QHeaderView::section {{
         background:{p['button']};
@@ -528,6 +887,9 @@ def qss(p):
         border:1px solid {p['border']};
         padding:6px;
         font-weight:bold;
+    }}
+    QHeaderView::section:hover {{
+        background:{p['hover']};
     }}
 
     /* Menus */
@@ -730,9 +1092,16 @@ def qss(p):
         background:{p['muted']};
     }}
 
+    /* Frames — critical for AddCards/EditCurrent toolbar areas */
+    QFrame {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+
     /* Labels */
     QLabel {{
         color:{p['fg']};
+        background:transparent;
     }}
 
     /* Spin boxes */
@@ -765,6 +1134,551 @@ def apply_qt_styles(theme: Theme):
     if app:
         app.setStyleSheet(qss(palette_for(theme)))
 
+def _build_qt_palette(p: dict) -> QPalette:
+    """Build a QPalette from our theme colors to override the OS/Qt dark palette.
+
+    Sets colors for ALL color groups (Active, Inactive, Disabled) to ensure
+    the OS theme cannot override any state of our widgets.
+    """
+    pal = QPalette()
+
+    # Define all color role mappings
+    color_map = {
+        QPalette.ColorRole.Window: QColor(p['bg']),
+        QPalette.ColorRole.WindowText: QColor(p['fg']),
+        QPalette.ColorRole.Base: QColor(p['input']),
+        QPalette.ColorRole.AlternateBase: QColor(p['bg']),
+        QPalette.ColorRole.ToolTipBase: QColor(p['button']),
+        QPalette.ColorRole.ToolTipText: QColor(p['buttonText']),
+        QPalette.ColorRole.Text: QColor(p['inputText']),
+        QPalette.ColorRole.Button: QColor(p['button']),
+        QPalette.ColorRole.ButtonText: QColor(p['buttonText']),
+        QPalette.ColorRole.BrightText: QColor(p['accent']),
+        QPalette.ColorRole.Link: QColor(p['accent']),
+        QPalette.ColorRole.Highlight: QColor(p['selection']),
+        QPalette.ColorRole.HighlightedText: QColor(p['fg']),
+        QPalette.ColorRole.PlaceholderText: QColor(p['muted']),
+        QPalette.ColorRole.Light: QColor(p['hover']),
+        QPalette.ColorRole.Midlight: QColor(p['border']),
+        QPalette.ColorRole.Mid: QColor(p['muted']),
+        QPalette.ColorRole.Dark: QColor(p['muted']),
+        QPalette.ColorRole.Shadow: QColor(p['border']),
+    }
+
+    # Apply to all color groups so OS theme can't override any state
+    groups = [
+        QPalette.ColorGroup.Active,
+        QPalette.ColorGroup.Inactive,
+        QPalette.ColorGroup.Disabled,
+    ]
+    for group in groups:
+        for role, color in color_map.items():
+            if group == QPalette.ColorGroup.Disabled:
+                # Use muted colors for disabled state
+                if role in (QPalette.ColorRole.WindowText, QPalette.ColorRole.Text,
+                            QPalette.ColorRole.ButtonText):
+                    pal.setColor(group, role, QColor(p['muted']))
+                else:
+                    pal.setColor(group, role, color)
+            else:
+                pal.setColor(group, role, color)
+
+    return pal
+
+def force_anki_theme_mode(theme: Theme):
+    """Force Anki's ThemeManager to use the correct mode for our theme.
+
+    When Windows switches between dark/light mode, Anki's ThemeManager detects
+    this and overrides our colors. We must force night_mode to match our theme
+    and override the Qt application palette to prevent OS theme from bleeding in.
+    """
+    p = palette_for(theme)
+
+    # Determine if our theme is dark or light based on background luminance
+    bg = p['bg']
+    # Parse hex color to get luminance
+    r, g, b = int(bg[1:3], 16), int(bg[3:5], 16), int(bg[5:7], 16)
+    luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    is_dark_theme = luminance < 0.5
+
+    # Force Anki's ThemeManager night_mode to match our theme
+    try:
+        from aqt.theme import theme_manager
+        theme_manager.night_mode = is_dark_theme
+        # Also try to set the default palette on theme_manager if it has one,
+        # preventing Anki from using its own calculated palette
+        if hasattr(theme_manager, '_default_palette'):
+            theme_manager._default_palette = _build_qt_palette(p)
+    except (ImportError, AttributeError):
+        pass
+
+    # Force Qt application palette to use our colors
+    app = QApplication.instance()
+    if app:
+        try:
+            app.setPalette(_build_qt_palette(p))
+        except (RuntimeError, AttributeError):
+            pass
+
+def on_theme_did_change():
+    """Called when Anki's theme changes (e.g. OS dark/light switch).
+
+    Re-assert our addon theme to prevent Anki's ThemeManager from
+    overriding our colors when the OS theme changes.
+
+    Uses delayed re-assertions because Anki continues to reload webviews
+    and re-apply its own styles AFTER this hook fires.
+    """
+    if is_follow_system_theme():
+        return
+    # Guard against recursive calls
+    if getattr(mw, "_ankitwin_theme_changing", False):
+        return
+    mw._ankitwin_theme_changing = True
+
+    def _reapply_theme():
+        """Re-assert our theme over Anki's."""
+        try:
+            apply_theme_everywhere(get_active_theme())
+        except (RuntimeError, AttributeError):
+            pass
+
+    try:
+        # Immediate re-assertion
+        _reapply_theme()
+
+        # Delayed re-assertions to catch Anki's own reloads that happen
+        # AFTER theme_did_change fires. Anki reloads webviews, re-applies
+        # its QPalette, and resets its QSS at various points after the hook.
+        from aqt.qt import QTimer
+        QTimer.singleShot(200, _reapply_theme)
+        QTimer.singleShot(800, _reapply_theme)
+        QTimer.singleShot(1500, _reapply_theme)
+    finally:
+        # Reset guard after all re-assertions have had time to complete
+        from aqt.qt import QTimer
+        QTimer.singleShot(2000, lambda: setattr(mw, "_ankitwin_theme_changing", False))
+
+# ---------------- Browser-specific Qt widget theming ----------------
+def _style_qt_children(parent_widget, p: dict):
+    """Apply QSS directly to individual child widgets.
+
+    Qt6 does NOT reliably cascade parent QSS to children when Anki's own
+    ThemeManager applies styles after our hook. The only reliable way is
+    to find each child widget and set its stylesheet directly.
+    """
+    from aqt.qt import QTreeView, QTableView, QHeaderView
+
+    # Style all QTreeView widgets (sidebar)
+    tree_qss = f"""
+    QTreeView {{
+        background:{p['bg']};
+        color:{p['fg']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+        outline:none;
+    }}
+    QTreeView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
+    QTreeView::item:hover {{
+        background:{p['hover']};
+        color:{p['fg']};
+    }}
+    QTreeView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+    QTreeView::branch {{
+        background:{p['bg']};
+    }}
+    QTreeView::branch:hover {{
+        background:{p['hover']};
+    }}
+    QTreeView::branch:selected {{
+        background:{p['selection']};
+    }}
+    """
+    for w in parent_widget.findChildren(QTreeView):
+        try:
+            w.setStyleSheet(tree_qss)
+            # Also force palette on the widget for Qt6 robustness
+            pal = w.palette()
+            pal.setColor(QPalette.ColorRole.Base, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.Text, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.Window, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.WindowText, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
+            pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['input']))
+            w.setPalette(pal)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QTableView widgets (card list)
+    table_qss = f"""
+    QTableView {{
+        background:{p['bg']};
+        color:{p['fg']};
+        alternate-background-color:{p['input']};
+        gridline-color:{p['border']};
+        border:1px solid {p['border']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+    QTableView::item {{
+        color:{p['fg']};
+        padding:4px 2px;
+    }}
+    QTableView::item:hover {{
+        background:{p['hover']};
+        color:{p['fg']};
+    }}
+    QTableView::item:selected {{
+        background:{p['selection']};
+        color:{p['fg']};
+    }}
+    """
+    for w in parent_widget.findChildren(QTableView):
+        try:
+            w.setStyleSheet(table_qss)
+            pal = w.palette()
+            pal.setColor(QPalette.ColorRole.Base, QColor(p['bg']))
+            pal.setColor(QPalette.ColorRole.Text, QColor(p['fg']))
+            pal.setColor(QPalette.ColorRole.AlternateBase, QColor(p['input']))
+            pal.setColor(QPalette.ColorRole.Highlight, QColor(p['selection']))
+            pal.setColor(QPalette.ColorRole.HighlightedText, QColor(p['fg']))
+            w.setPalette(pal)
+            w.setAlternatingRowColors(True)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QHeaderView sections (column headers)
+    header_qss = f"""
+    QHeaderView::section {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        padding:6px;
+        font-weight:bold;
+    }}
+    QHeaderView::section:hover {{
+        background:{p['hover']};
+    }}
+    """
+    for w in parent_widget.findChildren(QHeaderView):
+        try:
+            w.setStyleSheet(header_qss)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QLineEdit (filter bar, search bar)
+    line_edit_qss = f"""
+    QLineEdit {{
+        background:{p['input']};
+        color:{p['inputText']};
+        border:1px solid {p['border']};
+        border-radius:3px;
+        padding:4px 8px;
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+    }}
+    QLineEdit:focus {{
+        border:2px solid {p['accent']};
+    }}
+    """
+    for w in parent_widget.findChildren(QLineEdit):
+        try:
+            w.setStyleSheet(line_edit_qss)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QPushButton
+    button_qss = f"""
+    QPushButton {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        border-radius:4px;
+        padding:6px 12px;
+        min-height:24px;
+    }}
+    QPushButton:hover {{
+        background:{p['hover']};
+        border-color:{p['accent']};
+    }}
+    QPushButton:pressed {{
+        background:{p['selection']};
+    }}
+    """
+    for w in parent_widget.findChildren(QPushButton):
+        try:
+            w.setStyleSheet(button_qss)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QComboBox
+    combo_qss = f"""
+    QComboBox {{
+        background:{p['input']};
+        color:{p['inputText']};
+        border:1px solid {p['border']};
+        border-radius:3px;
+        padding:4px 8px;
+    }}
+    QComboBox::drop-down {{
+        border:none;
+        width:20px;
+    }}
+    QComboBox QAbstractItemView {{
+        background:{p['input']};
+        color:{p['inputText']};
+        selection-background-color:{p['selection']};
+        selection-color:{p['fg']};
+        border:1px solid {p['border']};
+    }}
+    """
+    for w in parent_widget.findChildren(QComboBox):
+        try:
+            w.setStyleSheet(combo_qss)
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QLabel (make text visible)
+    for w in parent_widget.findChildren(QLabel):
+        try:
+            w.setStyleSheet(f"QLabel {{ color:{p['fg']}; background:transparent; }}")
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QFrame (containers)
+    for w in parent_widget.findChildren(QFrame):
+        try:
+            # Skip webview containers — only style plain QFrame/QWidget instances.
+            # Check the exact type to avoid styling QWebEngineView or its wrappers.
+            cls = type(w)
+            if cls is QFrame or cls is QWidget:
+                w.setStyleSheet(f"background:{p['bg']}; color:{p['fg']};")
+        except (RuntimeError, AttributeError):
+            pass
+
+    # Style all QCheckBox
+    for w in parent_widget.findChildren(QCheckBox):
+        try:
+            w.setStyleSheet(f"""
+            QCheckBox {{ color:{p['fg']}; spacing:8px; }}
+            QCheckBox::indicator {{ width:18px; height:18px; border:1px solid {p['border']}; background:{p['input']}; }}
+            QCheckBox::indicator:checked {{ background:{p['accent']}; border-color:{p['accent']}; }}
+            """)
+        except (RuntimeError, AttributeError):
+            pass
+
+
+def on_browser_will_show(browser):
+    """Apply targeted QSS to Browser window's Qt widgets (sidebar, table, filter).
+
+    Uses two strategies for Qt6 reliability:
+    1. Set QSS on the parent Browser window (cascading)
+    2. Find and style each child widget DIRECTLY (overrides Anki's own styles)
+    """
+    if is_follow_system_theme():
+        return
+    theme = get_active_theme()
+    p = palette_for(theme)
+
+    # Strategy 1: Parent-level QSS for general styling and any widgets
+    # not caught by direct child styling
+    browser_qss = f"""
+    /* Splitter between sidebar and table */
+    QSplitter::handle {{
+        background:{p['border']};
+    }}
+    QSplitter::handle:hover {{
+        background:{p['muted']};
+    }}
+    /* Search bar area */
+    QToolBar {{
+        background:{p['bg']};
+        border:1px solid {p['border']};
+    }}
+    QToolBar > QWidget {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+    QMenuBar {{
+        background:{p['bg']};
+        color:{p['fg']};
+    }}
+    QMenuBar::item:selected {{
+        background:{p['hover']};
+    }}
+    QStatusBar {{
+        background:{p['bg']};
+        color:{p['muted']};
+    }}
+    /* Scrollbars */
+    QScrollBar:vertical {{
+        background:{p['bg']};
+        width:12px;
+        border:none;
+    }}
+    QScrollBar::handle:vertical {{
+        background:{p['border']};
+        border-radius:6px;
+        min-height:20px;
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background:{p['muted']};
+    }}
+    QScrollBar:horizontal {{
+        background:{p['bg']};
+        height:12px;
+        border:none;
+    }}
+    QScrollBar::handle:horizontal {{
+        background:{p['border']};
+        border-radius:6px;
+        min-width:20px;
+    }}
+    QScrollBar::handle:horizontal:hover {{
+        background:{p['muted']};
+    }}
+    QScrollBar::add-line, QScrollBar::sub-line {{
+        border:none;
+        background:none;
+    }}
+    /* Tab bar */
+    QTabBar::tab {{
+        background:{p['button']};
+        color:{p['buttonText']};
+        border:1px solid {p['border']};
+        padding:6px 12px;
+    }}
+    QTabBar::tab:selected {{
+        background:{p['bg']};
+        border-bottom-color:{p['bg']};
+    }}
+    QTabBar::tab:hover {{
+        background:{p['hover']};
+    }}
+    """
+
+    try:
+        browser.setStyleSheet(browser_qss)
+    except (RuntimeError, AttributeError):
+        pass
+
+    # Strategy 2: Direct child widget styling (most reliable in Qt6)
+    _style_qt_children(browser, p)
+
+# ---------------- Shadow DOM refresh for editor ----------------
+def _build_shadow_dom_js(theme: Theme) -> str:
+    """Build JavaScript to inject styles into Shadow DOM elements (anki-editable).
+
+    Anki's RichTextStyles.svelte sets color on anki-editable via a CSSStyleRule
+    inserted into the shadow DOM's adopted stylesheets. When Windows is in dark mode,
+    Anki sets color:"white" even if our addon forces night_mode=False, because the
+    Svelte component may have already rendered. We override this by:
+    1. Injecting a <style> with !important rules into each shadowRoot
+    2. Also patching any existing CSSStyleRules that target anki-editable
+    3. Re-running on a MutationObserver so dynamically added fields get styled
+    """
+    p = palette_for(theme)
+    font_family = get_font_family()
+    font_size = get_font_size()
+    line_height = get_line_height()
+    letter_spacing = get_letter_spacing()
+
+    shadow_css = (
+        f"background:{p['input']} !important;"
+        f"color:{p['inputText']} !important;"
+        f"font-family:{font_family} !important;"
+        f"font-size:{font_size}px !important;"
+        f"line-height:{line_height} !important;"
+        f"letter-spacing:{letter_spacing}px !important;"
+        f"caret-color:{p['fg']} !important;"
+        f"padding:8px !important;"
+    )
+    inner_css = (
+        # Force color on all elements inside shadow DOM, including inline-styled content
+        f"*, *[style] {{ color:{p['inputText']} !important; }}"
+        # Override Anki's own anki-editable rule that sets color:white in dark mode
+        f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }}"
+        f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
+        # Override any font tags or spans with inline color styles
+        f"font, font[color] {{ color:{p['inputText']} !important; }}"
+        f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
+    )
+
+    shadow_css_json = json.dumps(f":host {{ {shadow_css} }} {inner_css}")
+
+    return (
+        "(function(){"
+        "  function styleShadowRoots(){"
+        "    document.querySelectorAll('anki-editable').forEach(function(el){"
+        "      if(el.shadowRoot){"
+        "        var sid='ankithemetwin-shadow';"
+        "        var existing=el.shadowRoot.getElementById(sid);"
+        "        if(existing){existing.remove();}"
+        "        var s=document.createElement('style');"
+        "        s.id=sid;"
+        f"        s.textContent={shadow_css_json};"
+        "        el.shadowRoot.appendChild(s);"
+        # Also patch Anki's own CSSStyleRules that target anki-editable
+        # Anki's RichTextStyles.svelte inserts rules like "anki-editable { color: white; }"
+        "        try{"
+        "          var sheets=el.shadowRoot.styleSheets||[];"
+        "          for(var i=0;i<sheets.length;i++){"
+        "            try{"
+        "              var rules=sheets[i].cssRules||[];"
+        "              for(var j=0;j<rules.length;j++){"
+        "                if(rules[j].selectorText&&rules[j].selectorText.indexOf('anki-editable')>=0){"
+        f"                  rules[j].style.color={json.dumps(p['inputText'])};"
+        f"                  rules[j].style.background={json.dumps(p['input'])};"
+        "                }"
+        "              }"
+        "            }catch(e2){}"
+        "          }"
+        "        }catch(e1){}"
+        "      }"
+        "    });"
+        "  }"
+        "  styleShadowRoots();"
+        # Also set up observer for dynamically added fields
+        "  if(!window._ankitwin_shadow_obs){"
+        "    window._ankitwin_shadow_obs=new MutationObserver(function(){setTimeout(styleShadowRoots,50);});"
+        "    window._ankitwin_shadow_obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
+        "  }"
+        "})();"
+    )
+
+def on_editor_did_load_note(editor):
+    """Inject shadow DOM styles when editor loads a note.
+
+    Uses multiple delayed injections because:
+    1. Anki's Svelte RichTextStyles component may set color AFTER our initial injection
+    2. The field rendering is async — fields may not have shadowRoot immediately
+    3. Anki may re-apply its own color rules after the note loads
+    """
+    if is_follow_system_theme():
+        return
+    theme = get_active_theme()
+    js = _build_shadow_dom_js(theme)
+    try:
+        # Multiple delays to catch Anki's async field rendering
+        # 100ms: initial attempt (fields may not be ready)
+        # 300ms: after Svelte components mount
+        # 600ms: after Anki's RichTextStyles applies its color rule
+        # 1200ms: final catch-all for slow renders
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 100);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 300);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 600);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 1200);")
+    except (RuntimeError, AttributeError):
+        pass
+
 # ---------------- Instant refresh ----------------
 def _build_refresh_js(theme: Theme) -> str:
     """Build JavaScript to refresh CSS in webviews safely using JSON escaping."""
@@ -783,22 +1697,141 @@ def _build_refresh_js(theme: Theme) -> str:
     )
 
 def refresh_all_webviews():
-    """Push updated CSS into every open webview instantly."""
+    """Push updated CSS into every open webview instantly.
+
+    Covers: main window webviews, Browser, AddCards, EditCurrent,
+    Stats, and any other open dialog with webviews or editors.
+    """
+    if is_follow_system_theme():
+        return
     theme = get_active_theme()
+    p = palette_for(theme)
     js = _build_refresh_js(theme)
+    shadow_js = _build_shadow_dom_js(theme)
+
+    # 1. Main window webviews (deck browser, reviewer, toolbar, bottom bar)
     for attr in ("web", "bottomWeb"):
         wv = getattr(mw, attr, None)
         if wv:
             try:
                 wv.eval(js)
-            except (RuntimeError, AttributeError) as e:
-                # WebView might be closed or not ready - safe to ignore
-                # Uncomment for debugging: print(f"AnkiThemeTwin: {e}")
+            except (RuntimeError, AttributeError):
                 pass
 
+    # 2. If reviewer is active, also refresh its webview explicitly
+    reviewer = getattr(mw, "reviewer", None)
+    if reviewer:
+        wv = getattr(reviewer, "web", None)
+        if wv:
+            try:
+                wv.eval(js)
+            except (RuntimeError, AttributeError):
+                pass
+        bottom = getattr(reviewer, "bottom", None)
+        if bottom:
+            bwv = getattr(bottom, "web", None)
+            if bwv:
+                try:
+                    bwv.eval(js)
+                except (RuntimeError, AttributeError):
+                    pass
+
+    # 3. Scan ALL open top-level widgets for webviews and editors
+    app = QApplication.instance()
+    if not app:
+        return
+
+    try:
+        from aqt.browser.browser import Browser
+    except ImportError:
+        Browser = None
+
+    for widget in app.topLevelWidgets():
+        try:
+            if not widget.isVisible():
+                continue
+        except (RuntimeError, AttributeError):
+            continue
+
+        # Browser windows get special treatment — use targeted browser QSS only
+        # (do NOT apply the full qss() which has a blanket QWidget rule that
+        # conflicts with webview components and loses font/label colors)
+        if Browser and isinstance(widget, Browser):
+            on_browser_will_show(widget)
+            if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
+                try:
+                    widget.editor.web.eval(js)
+                    # Multiple delayed injections to catch Anki's async Svelte rendering
+                    # Anki's RichTextStyles.svelte sets color:white AFTER initial load in dark mode
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 100);")
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 400);")
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 800);")
+                except (RuntimeError, AttributeError):
+                    pass
+            # Also refresh any other webviews inside the browser (e.g. card preview)
+            try:
+                from aqt.qt import QWebEngineView
+                for wv in widget.findChildren(QWebEngineView):
+                    try:
+                        wv.page().runJavaScript(js)
+                        # Also inject shadow DOM styles into all browser webviews
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 100);")
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 400);")
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 800);")
+                    except (RuntimeError, AttributeError):
+                        pass
+            except (ImportError, RuntimeError, AttributeError):
+                pass
+            continue
+
+        # Re-apply QSS to every visible non-Browser top-level window
+        try:
+            widget.setStyleSheet(qss(p))
+        except (RuntimeError, AttributeError):
+            pass
+
+        # Also style child widgets directly for Qt6 reliability
+        # (ensures AddCards, EditCurrent, etc. have styled buttons/inputs)
+        _style_qt_children(widget, p)
+
+        # Find any webview (QWebEngineView) inside the widget and eval our CSS
+        try:
+            from aqt.qt import QWebEngineView
+            for wv in widget.findChildren(QWebEngineView):
+                try:
+                    wv.page().runJavaScript(js)
+                except (RuntimeError, AttributeError):
+                    pass
+        except (ImportError, RuntimeError, AttributeError):
+            pass
+
+        # Find any editor inside the widget (AddCards, EditCurrent, etc.)
+        # and refresh its webview + shadow DOM
+        if hasattr(widget, 'editor') and widget.editor:
+            editor = widget.editor
+            if hasattr(editor, 'web') and editor.web:
+                try:
+                    editor.web.eval(js)
+                    editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                except (RuntimeError, AttributeError):
+                    pass
+
 def apply_theme_everywhere(theme: Theme):
-    """Apply QSS + refresh all webviews in one call."""
+    """Apply QSS + force theme mode + refresh all webviews in one call."""
+    if is_follow_system_theme():
+        _restore_system_theme()
+        return
+    force_anki_theme_mode(theme)
     apply_qt_styles(theme)
+
+    # Also apply QSS directly to the main window to override any per-widget
+    # stylesheets Anki might set
+    p = palette_for(theme)
+    try:
+        mw.setStyleSheet(qss(p))
+    except (RuntimeError, AttributeError):
+        pass
+
     refresh_all_webviews()
 
 # ---------------- Theme Presets ----------------
@@ -2110,6 +3143,8 @@ def set_theme(theme: Theme):
     theme = normalize_theme(theme)
     cfg = get_config()
     cfg["currentTheme"] = theme
+    # Selecting a theme implicitly disables follow-system-theme
+    cfg["followSystemTheme"] = False
     write_config(cfg)
     apply_theme_everywhere(theme)
     # Record usage statistics
@@ -2127,6 +3162,20 @@ def set_font_size(size: int):
 
 def add_menu():
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
+
+    # ---- Follow System Theme toggle ----
+    actFollow = QAction("Follow System Theme (Disable Addon Theming)", mw, checkable=True)
+    actFollow.setChecked(is_follow_system_theme())
+    def toggle_follow_system(checked):
+        set_follow_system_theme(checked)
+        if checked:
+            tooltip("🖥️ Following system/Anki theme — addon theming disabled", period=2000)
+        else:
+            tooltip("🎨 Addon theming enabled", period=2000)
+    actFollow.triggered.connect(toggle_follow_system)
+    m.addAction(actFollow)
+
+    m.addSeparator()
 
     # ---- Direct theme choices ----
     for label, key in THEME_OPTIONS:
@@ -2305,3 +3354,6 @@ def on_profile_open():
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
+gui_hooks.browser_will_show.append(on_browser_will_show)
+gui_hooks.editor_did_load_note.append(on_editor_did_load_note)
+gui_hooks.theme_did_change.append(on_theme_did_change)

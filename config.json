@@ -1,4 +1,5 @@
 {
   "currentTheme": "sepia_special",
-  "fontSize": 16
+  "fontSize": 16,
+  "followSystemTheme": false
 }
