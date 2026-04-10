@@ -80,7 +80,9 @@ HIGH_CONTRAST_LIGHT = {"bg":"#FFFFFF","fg":"#000000","muted":"#404040","border":
     "input":"#FFFFFF","inputText":"#000000","hover":"#E0E0E0","selection":"#FFFF00"}
 HIGH_CONTRAST_DARK = {"bg":"#000000","fg":"#FFFFFF","muted":"#C0C0C0","border":"#FFFFFF",
     "accent":"#FFFF00","button":"#1A1A1A","buttonText":"#FFFFFF",
-    "input":"#000000","inputText":"#FFFFFF","hover":"#2A2A2A","selection":"#FFFF00"}
+    "input":"#000000","inputText":"#FFFFFF","hover":"#2A2A2A","selection":"#FFFF00",
+    "stateNew":"#93C5FD","stateLearn":"#F87171","stateReview":"#4ADE80",
+    "stateBuried":"#F59E0B","stateSuspended":"#FEF9C3","stateMarked":"#A855F7"}
 DYSLEXIA_FRIENDLY = {"bg":"#FFFACD","fg":"#2F2F2F","muted":"#696969","border":"#E6DB8F",
     "accent":"#008B8B","button":"#FFF8B0","buttonText":"#2F2F2F",
     "input":"#FFFFF0","inputText":"#2F2F2F","hover":"#FFF48F","selection":"#FFE680"}
@@ -257,10 +259,10 @@ def css_vars(p):
         f"  --fg-disabled: {p['muted']} !important;"
         f"  --fg-faint: {p['border']} !important;"
         f"  --fg-link: {p['accent']} !important;"
-        f"  --shadow: rgba(0,0,0,0.1) !important;"
-        f"  --shadow-inset: rgba(0,0,0,0.05) !important;"
-        f"  --shadow-subtle: rgba(0,0,0,0.03) !important;"
-        f"  --shadow-focus: {p['accent']}33 !important;"
+        f"  --shadow: {p['border']} !important;"
+        f"  --shadow-inset: {p['muted']} !important;"
+        f"  --shadow-subtle: {p['hover']} !important;"
+        f"  --shadow-focus: {p['accent']} !important;"
         f"  --border: {p['border']} !important;"
         f"  --border-subtle: {p['border']} !important;"
         f"  --border-strong: {p['muted']} !important;"
@@ -277,7 +279,7 @@ def css_vars(p):
         f"  --button-primary-gradient-start: {p['accent']} !important;"
         f"  --button-primary-gradient-end: {p['accent']} !important;"
         f"  --button-primary-disabled: {p['muted']} !important;"
-        f"  --scrollbar-bg: transparent !important;"
+        f"  --scrollbar-bg: {p['bg']} !important;"
         f"  --scrollbar-bg-hover: {p['hover']} !important;"
         f"  --scrollbar-bg-active: {p['selection']} !important;"
         f"  --accent-card: {p['accent']} !important;"
@@ -306,6 +308,13 @@ def css_vars(p):
         f"  --flag-5: #FF69B4 !important;"
         f"  --flag-6: #40E0D0 !important;"
         f"  --flag-7: #9B59B6 !important;"
+        # Card state colors used by Anki's browser table and deck views
+        f"  --state-new: {p.get('stateNew', '#3B82F6')} !important;"
+        f"  --state-learn: {p.get('stateLearn', '#DC2626')} !important;"
+        f"  --state-review: {p.get('stateReview', '#16A34A')} !important;"
+        f"  --state-buried: {p.get('stateBuried', '#D97706')} !important;"
+        f"  --state-suspended: {p.get('stateSuspended', '#EAB308')} !important;"
+        f"  --state-marked: {p.get('stateMarked', '#6366F1')} !important;"
         "}"
         # Override nightMode/night_mode body classes that Anki applies in dark mode
         # This ensures our theme colors win even when OS is in dark mode
