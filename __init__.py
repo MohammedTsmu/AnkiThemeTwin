@@ -2885,15 +2885,31 @@ def show_about_dialog():
     lbl = QLabel(
         '<div style="font-size:14px;">'
         f'<b>AnkiThemeTwin</b> v{VERSION}<br>'
-        '13+ themes including accessibility themes.<br>'
-        'Custom theme creator, presets, keyboard shortcuts.<br>'
-        'Configurable fonts, sizes, and comprehensive styling.<br><br>'
+        '21+ themes including accessibility and community themes.<br>'
+        'Full theming engine with eye-comfort tools.<br><br>'
         '<b>Features:</b><br>'
         '• 7 eye-comfort themes + 6 accessibility themes<br>'
+        '• 8 community themes (Solarized, Nord, Catppuccin, etc.)<br>'
         '• Custom theme creator with color picker<br>'
-        '• Theme presets and import/export<br>'
-        '• Keyboard shortcuts (Ctrl+Shift+1-7)<br>'
-        '• Advanced font customization<br><br>'
+        '• Theme presets, import/export, and community gallery<br>'
+        '• Keyboard shortcuts (Ctrl+Shift+1-7, Ctrl+Shift+Z)<br>'
+        '• Advanced font customization<br>'
+        '• 🔆 Blue light filter with intensity slider<br>'
+        '• 🌅 Ambient light auto-adjust (time-based)<br>'
+        '• 🧘 Zen Mode — distraction-free review<br>'
+        '• ⏱️ Pomodoro break reminders<br>'
+        '• 🔄 Theme rotation and seasonal themes<br>'
+        '• 📝 Per-note-type styling<br>'
+        '• 🎨 Custom CSS injection<br>'
+        '• 🎯 Match card background<br>'
+        '• 🔄 Theme sync across devices via AnkiWeb<br>'
+        '• Right-click context menu for quick switching<br>'
+        '• 4 animation styles (fade, slide, morph, zoom)<br>'
+        '• Status bar theme indicator<br><br>'
+        '<b>Card Template Helper Variables:</b><br>'
+        '<code>--att-bg, --att-fg, --att-accent, --att-border,<br>'
+        '--att-button, --att-input, --att-hover, --att-selection,<br>'
+        '--att-font-size, --att-font-family, --att-line-height</code><br><br>'
         'Author: <b>Dr. Mohammed</b><br>'
         '<a href="https://github.com/MohammedTsmu/AnkiThemeTwin">'
         'GitHub: MohammedTsmu/AnkiThemeTwin</a>'
@@ -2908,7 +2924,7 @@ def show_about_dialog():
     closeBtn.clicked.connect(dlg.accept)
     layout.addWidget(closeBtn)
     dlg.setLayout(layout)
-    dlg.resize(600, 400)
+    dlg.resize(650, 550)
     dlg.exec()
 
 # ---------------- Custom Theme Creator Dialog ----------------
@@ -3387,6 +3403,21 @@ def show_animation_settings():
     style_group.addButton(fade_rb)
     style_layout.addWidget(fade_rb)
 
+    slide_rb = QRadioButton("Slide")
+    slide_rb.setChecked(settings.get("style", "fade") == "slide")
+    style_group.addButton(slide_rb)
+    style_layout.addWidget(slide_rb)
+
+    morph_rb = QRadioButton("Morph (Elastic)")
+    morph_rb.setChecked(settings.get("style", "fade") == "morph")
+    style_group.addButton(morph_rb)
+    style_layout.addWidget(morph_rb)
+
+    zoom_rb = QRadioButton("Zoom")
+    zoom_rb.setChecked(settings.get("style", "fade") == "zoom")
+    style_group.addButton(zoom_rb)
+    style_layout.addWidget(zoom_rb)
+
     none_rb = QRadioButton("None (Instant)")
     none_rb.setChecked(settings.get("style", "fade") == "none")
     style_group.addButton(none_rb)
@@ -3396,10 +3427,20 @@ def show_animation_settings():
 
     # Save button
     def save_settings():
+        if fade_rb.isChecked():
+            style = "fade"
+        elif slide_rb.isChecked():
+            style = "slide"
+        elif morph_rb.isChecked():
+            style = "morph"
+        elif zoom_rb.isChecked():
+            style = "zoom"
+        else:
+            style = "none"
         new_settings = {
             "enabled": enabled_cb.isChecked(),
             "duration": duration_spin.value(),
-            "style": "fade" if fade_rb.isChecked() else "none"
+            "style": style,
         }
         save_animation_settings(new_settings)
         tooltip("Animation settings saved!")
@@ -4486,6 +4527,10 @@ def set_theme(theme: Theme):
     apply_theme_everywhere(theme)
     # Record usage statistics
     record_theme_usage(theme)
+    # Feature 13: Update status bar
+    _update_status_bar()
+    # Feature 3: Sync config if enabled
+    sync_config_to_media()
 
 def set_font_size(size: int):
     """Set the font size and refresh all views. Valid range: 8-72px."""
@@ -4496,6 +4541,7 @@ def set_font_size(size: int):
     cfg["fontSize"] = size
     write_config(cfg)
     apply_theme_everywhere(get_active_theme())
+    _update_status_bar()
 
 def add_menu():
     m = mw.form.menuTools.addMenu("Theme: AnkiThemeTwin")
@@ -4511,6 +4557,12 @@ def add_menu():
             tooltip("🎨 Addon theming enabled", period=2000)
     actFollow.triggered.connect(toggle_follow_system)
     m.addAction(actFollow)
+
+    # Feature 5: Zen Mode toggle
+    actZen = QAction("🧘 Zen Mode (Distraction-Free)", mw, checkable=True)
+    actZen.setChecked(get_zen_mode())
+    actZen.triggered.connect(lambda _: toggle_zen_mode())
+    m.addAction(actZen)
 
     m.addSeparator()
 
@@ -4573,9 +4625,31 @@ def add_menu():
     actPresets.triggered.connect(show_presets_manager)
     m.addAction(actPresets)
 
+    # Feature 14: Community Gallery
+    actGallery = QAction("🌍 Community Theme Gallery...", mw)
+    actGallery.triggered.connect(show_community_gallery_dialog)
+    m.addAction(actGallery)
+
     m.addSeparator()
 
-    # ---- Scheduling & Per-Deck ----
+    # ---- Eye Comfort & Filters ----
+    actBlueLight = QAction("🔆 Blue Light Filter...", mw)
+    actBlueLight.triggered.connect(show_blue_light_dialog)
+    m.addAction(actBlueLight)
+
+    actAmbient = QAction("🌅 Ambient Light Auto-Adjust...", mw)
+    actAmbient.triggered.connect(show_ambient_light_dialog)
+    m.addAction(actAmbient)
+
+    # Feature 12: Match Card Background toggle
+    actMatchBg = QAction("🎯 Match Card Background", mw, checkable=True)
+    actMatchBg.setChecked(get_match_card_background())
+    actMatchBg.triggered.connect(lambda _: toggle_match_card_background())
+    m.addAction(actMatchBg)
+
+    m.addSeparator()
+
+    # ---- Scheduling & Automation ----
     actScheduled = QAction("Scheduled Theme Switching...", mw)
     actScheduled.triggered.connect(show_scheduled_themes_dialog)
     m.addAction(actScheduled)
@@ -4584,6 +4658,24 @@ def add_menu():
     actDeckThemes.triggered.connect(show_deck_themes_dialog)
     m.addAction(actDeckThemes)
 
+    # Feature 4: Note-Type Styling
+    actNoteType = QAction("📝 Note Type Styling...", mw)
+    actNoteType.triggered.connect(show_note_type_styling_dialog)
+    m.addAction(actNoteType)
+
+    # Feature 6: Theme Rotation
+    actRotation = QAction("🔄 Theme Rotation...", mw)
+    actRotation.triggered.connect(show_rotation_dialog)
+    m.addAction(actRotation)
+
+    # Feature 15: Seasonal Themes
+    actSeasonal = QAction("🌿 Seasonal Themes...", mw)
+    actSeasonal.triggered.connect(show_seasonal_themes_dialog)
+    m.addAction(actSeasonal)
+
+    m.addSeparator()
+
+    # ---- Visual & Animation ----
     actAnimations = QAction("Animation Settings...", mw)
     actAnimations.triggered.connect(show_animation_settings)
     m.addAction(actAnimations)
@@ -4592,6 +4684,11 @@ def add_menu():
     actVisualEnhancements.triggered.connect(show_visual_enhancements_dialog)
     m.addAction(actVisualEnhancements)
 
+    # Feature 7: Custom CSS
+    actCustomCSS = QAction("🎨 Custom CSS...", mw)
+    actCustomCSS.triggered.connect(show_custom_css_dialog)
+    m.addAction(actCustomCSS)
+
     m.addSeparator()
 
     # ---- Study & Quick Access ----
@@ -4599,16 +4696,26 @@ def add_menu():
     actStudyMode.triggered.connect(show_study_mode_dialog)
     m.addAction(actStudyMode)
 
+    # Feature 1: Pomodoro Timer
+    actPomodoro = QAction("⏱️ Pomodoro Timer...", mw)
+    actPomodoro.triggered.connect(show_pomodoro_dialog)
+    m.addAction(actPomodoro)
+
     actQuickSettings = QAction("Quick Settings Panel...", mw)
     actQuickSettings.triggered.connect(show_quick_settings_panel)
     m.addAction(actQuickSettings)
 
     m.addSeparator()
 
-    # ---- Configuration & Statistics ----
+    # ---- Configuration & Sync ----
     actBackup = QAction("Backup & Restore...", mw)
     actBackup.triggered.connect(show_backup_restore_dialog)
     m.addAction(actBackup)
+
+    # Feature 3: Theme Sync
+    actSync = QAction("🔄 Theme Sync...", mw)
+    actSync.triggered.connect(show_sync_dialog)
+    m.addAction(actSync)
 
     actStatistics = QAction("Usage Statistics...", mw)
     actStatistics.triggered.connect(show_statistics_dialog)
@@ -4664,6 +4771,95 @@ def setup_keyboard_shortcuts():
         show_shortcut_feedback(f"Font size decreased to {new_size}px", "📉")
     decrease_font.activated.connect(decrease_size)
 
+    # Feature 5: Ctrl+Shift+Z for Zen Mode toggle
+    zen_shortcut = QShortcut(QKeySequence("Ctrl+Shift+Z"), mw)
+    zen_shortcut.activated.connect(toggle_zen_mode)
+
+# ====== Feature 10: Right-Click Context Menu ======
+def _on_webview_context_menu(webview, menu):
+    """Add theme switching options to webview right-click context menu."""
+    if is_follow_system_theme():
+        return
+
+    theme_menu = QMenu("🎨 AnkiThemeTwin", menu)
+
+    # Quick theme options
+    for label, key in THEME_OPTIONS[:5]:
+        act = QAction(label, theme_menu)
+        act.triggered.connect(lambda _, k=key: set_theme(k))
+        theme_menu.addAction(act)
+
+    theme_menu.addSeparator()
+
+    # Favorite themes
+    favorites = get_favorite_themes()
+    if favorites:
+        for fav in favorites[:5]:
+            if fav in PALETTES:
+                act = QAction(f"★ {fav.replace('_', ' ').title()}", theme_menu)
+                act.triggered.connect(lambda _, f=fav: set_theme(f))
+                theme_menu.addAction(act)
+        theme_menu.addSeparator()
+
+    # Quick toggles
+    zen_act = QAction("🧘 Toggle Zen Mode", theme_menu)
+    zen_act.triggered.connect(toggle_zen_mode)
+    theme_menu.addAction(zen_act)
+
+    # Font size submenu
+    font_sub = QMenu("Font Size", theme_menu)
+    for label, size in [("Small (14px)", 14), ("Medium (16px)", 16), ("Large (20px)", 20), ("Huge (24px)", 24)]:
+        act = QAction(label, font_sub)
+        act.triggered.connect(lambda _, s=size: set_font_size(s))
+        font_sub.addAction(act)
+    theme_menu.addMenu(font_sub)
+
+    # Blue light filter quick options
+    bl_sub = QMenu("🔆 Blue Light Filter", theme_menu)
+    for label, val in [("Off", 0), ("Light (20%)", 20), ("Medium (40%)", 40), ("Strong (60%)", 60), ("Max (80%)", 80)]:
+        act = QAction(label, bl_sub)
+        act.triggered.connect(lambda _, v=val: set_blue_light_filter(v))
+        bl_sub.addAction(act)
+    theme_menu.addMenu(bl_sub)
+
+    menu.addSeparator()
+    menu.addMenu(theme_menu)
+
+# ====== Feature 4: Reviewer hook for note-type CSS ======
+def _on_reviewer_did_show_answer(card):
+    """Apply note-type specific styling when reviewing."""
+    _apply_note_type_styling_for_card(card)
+
+def _on_reviewer_did_show_question(card):
+    """Apply note-type specific styling when question is shown."""
+    _apply_note_type_styling_for_card(card)
+    # Feature 6: Check theme rotation on each card
+    _check_theme_rotation()
+
+def _apply_note_type_styling_for_card(card):
+    """Apply note-type specific CSS for the current card."""
+    styles = get_note_type_styles()
+    if not styles:
+        return
+    try:
+        note = card.note()
+        model = note.note_type()
+        if model:
+            nt_name = model.get("name", "")
+            css = _get_note_type_css(nt_name)
+            if css:
+                js = (
+                    "(function(){"
+                    "var sid='ankithemetwin-notetype';"
+                    "var el=document.getElementById(sid);"
+                    "if(!el){el=document.createElement('style');el.id=sid;document.head.appendChild(el);}"
+                    f"el.textContent={json.dumps(css)};"
+                    "})();"
+                )
+                mw.reviewer.web.eval(js)
+    except (AttributeError, Exception):
+        pass
+
 def on_profile_open():
     if not getattr(mw, "_ankitwin_menu", False):
         add_menu()
@@ -4674,22 +4870,61 @@ def on_profile_open():
             PALETTES[name] = palette
         mw._ankitwin_menu = True
 
+    # Feature 3: Sync config from media if available
+    sync_config_from_media()
+
+    # Feature 15: Check seasonal theme
+    _check_seasonal_theme()
+
     # Check scheduled theme on startup
     check_scheduled_theme()
+
+    # Feature 9: Apply ambient light filter
+    _apply_ambient_light()
 
     # Apply current theme
     apply_theme_everywhere(get_active_theme())
 
+    # Feature 13: Update status bar
+    _update_status_bar()
+
+    # Feature 1: Start Pomodoro timer if enabled
+    settings = get_pomodoro_settings()
+    if settings.get("enabled"):
+        _start_pomodoro_timer()
+
+    # Feature 6: Start rotation timer if enabled
+    _start_rotation_timer()
+
     # Set up timer to check scheduled themes every 5 minutes
     if not hasattr(mw, "_ankitwin_timer"):
-        from aqt.qt import QTimer
         timer = QTimer(mw)
         timer.timeout.connect(check_scheduled_theme)
         timer.start(300000)  # 5 minutes in milliseconds
         mw._ankitwin_timer = timer
+
+    # Feature 9: Timer for ambient light updates every 10 minutes
+    if not hasattr(mw, "_ankitwin_ambient_timer"):
+        ambient_timer = QTimer(mw)
+        ambient_timer.timeout.connect(_apply_ambient_light)
+        ambient_timer.start(600000)  # 10 minutes
+        mw._ankitwin_ambient_timer = ambient_timer
 
 gui_hooks.profile_did_open.append(on_profile_open)
 gui_hooks.webview_will_set_content.append(inject_css)
 gui_hooks.browser_will_show.append(on_browser_will_show)
 gui_hooks.editor_did_load_note.append(on_editor_did_load_note)
 gui_hooks.theme_did_change.append(on_theme_did_change)
+
+# Feature 10: Right-click context menu
+try:
+    gui_hooks.webview_will_show_context_menu.append(_on_webview_context_menu)
+except AttributeError:
+    pass  # Hook not available in older Anki versions
+
+# Feature 4/6: Reviewer card hooks for note-type styling and rotation
+try:
+    gui_hooks.reviewer_did_show_question.append(_on_reviewer_did_show_question)
+    gui_hooks.reviewer_did_show_answer.append(_on_reviewer_did_show_answer)
+except AttributeError:
+    pass
