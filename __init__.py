@@ -295,6 +295,10 @@ def css_vars(p):
         # Additional properties used by Anki's editor/browser Svelte components
         f"  --pane-bg: {p['bg']} !important;"
         f"  --surface-bg: {p['bg']} !important;"
+        # Editor text color properties
+        f"  --text-fg: {p['fg']} !important;"
+        f"  --editor-fg: {p['inputText']} !important;"
+        f"  --field-bg: {p['input']} !important;"
         f"  --flag-1: #E74C3C !important;"
         f"  --flag-2: #E67E22 !important;"
         f"  --flag-3: #2ECC71 !important;"
@@ -635,6 +639,14 @@ def inject_css(web_content, ctx):
         .label-name, .field-label, [class*="label"] {{ color:{p['muted']} !important; }}
         .collapse-icon {{ color:{p['muted']} !important; }}
         .fields-collapse {{ background:{p['bg']} !important; }}
+        /* Rich-text-input container (Anki's Svelte component) */
+        .rich-text-input {{ background-color:{p['input']} !important; color:{p['inputText']} !important; }}
+        .rich-text-editable {{ color:{p['inputText']} !important; }}
+        /* Force ALL text inside editor fields to use theme color */
+        .field *, .EditorField *, .editor-field *, .rich-text-input *, .rich-text-editable * {{ color:{p['inputText']} !important; }}
+        /* Override content with inline style colors (from card templates) */
+        .field *[style], .EditorField *[style], .editor-field *[style] {{ color:{p['inputText']} !important; }}
+        .field font, .EditorField font, .editor-field font {{ color:{p['inputText']} !important; }}
         /* Tag editor in browser */
         .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
         .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
@@ -691,10 +703,18 @@ def inject_css(web_content, ctx):
             f"letter-spacing:{get_letter_spacing()}px !important; "
             f"caret-color:{p['fg']} !important; "
             f"padding:8px !important; }} "
-            f"* {{ color:{p['inputText']} !important; }} "
-            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
+            # Force color on all elements, including inline-styled content
+            f"*, *[style] {{ color:{p['inputText']} !important; }} "
+            # Override Anki's own anki-editable rule (RichTextStyles sets color:white in dark mode)
+            f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }} "
+            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }} "
+            # Override legacy font tags and inline color spans from card content
+            f"font, font[color] {{ color:{p['inputText']} !important; }} "
+            f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
         )
         shadow_css_json = json.dumps(shadow_css_content)
+        input_text_json = json.dumps(p['inputText'])
+        input_bg_json = json.dumps(p['input'])
         shadow_js = (
             "<script>"
             "(function(){"
@@ -703,20 +723,40 @@ def inject_css(web_content, ctx):
             "      if(el.shadowRoot){"
             "        var sid='ankithemetwin-shadow';"
             "        var existing=el.shadowRoot.getElementById(sid);"
-            "        if(!existing){"
-            "          var s=document.createElement('style');"
-            "          s.id=sid;"
-            f"          s.textContent={shadow_css_json};"
-            "          el.shadowRoot.appendChild(s);"
-            "        }"
+            "        if(existing){existing.remove();}"
+            "        var s=document.createElement('style');"
+            "        s.id=sid;"
+            f"        s.textContent={shadow_css_json};"
+            "        el.shadowRoot.appendChild(s);"
+            # Also patch Anki's own CSSStyleRules that target anki-editable
+            "        try{"
+            "          var sheets=el.shadowRoot.styleSheets||[];"
+            "          for(var i=0;i<sheets.length;i++){"
+            "            try{"
+            "              var rules=sheets[i].cssRules||[];"
+            "              for(var j=0;j<rules.length;j++){"
+            "                if(rules[j].selectorText&&rules[j].selectorText.indexOf('anki-editable')>=0){"
+            f"                  rules[j].style.color={input_text_json};"
+            f"                  rules[j].style.background={input_bg_json};"
+            "                }"
+            "              }"
+            "            }catch(e2){}"
+            "          }"
+            "        }catch(e1){}"
             "      }"
             "    });"
             "  }"
             "  /* Run after DOM is ready and observe for dynamically added fields */"
             "  if(document.readyState==='complete'){"
             "    setTimeout(styleShadowRoots,100);"
+            "    setTimeout(styleShadowRoots,500);"
+            "    setTimeout(styleShadowRoots,1000);"
             "  }else{"
-            "    window.addEventListener('load',function(){setTimeout(styleShadowRoots,100);});"
+            "    window.addEventListener('load',function(){"
+            "      setTimeout(styleShadowRoots,100);"
+            "      setTimeout(styleShadowRoots,500);"
+            "      setTimeout(styleShadowRoots,1000);"
+            "    });"
             "  }"
             "  var obs=new MutationObserver(function(){setTimeout(styleShadowRoots,50);});"
             "  obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
@@ -1535,7 +1575,16 @@ def on_browser_will_show(browser):
 
 # ---------------- Shadow DOM refresh for editor ----------------
 def _build_shadow_dom_js(theme: Theme) -> str:
-    """Build JavaScript to inject styles into Shadow DOM elements (anki-editable)."""
+    """Build JavaScript to inject styles into Shadow DOM elements (anki-editable).
+
+    Anki's RichTextStyles.svelte sets color on anki-editable via a CSSStyleRule
+    inserted into the shadow DOM's adopted stylesheets. When Windows is in dark mode,
+    Anki sets color:"white" even if our addon forces night_mode=False, because the
+    Svelte component may have already rendered. We override this by:
+    1. Injecting a <style> with !important rules into each shadowRoot
+    2. Also patching any existing CSSStyleRules that target anki-editable
+    3. Re-running on a MutationObserver so dynamically added fields get styled
+    """
     p = palette_for(theme)
     font_family = get_font_family()
     font_size = get_font_size()
@@ -1553,37 +1602,80 @@ def _build_shadow_dom_js(theme: Theme) -> str:
         f"padding:8px !important;"
     )
     inner_css = (
-        f"* {{ color:{p['inputText']} !important; }}"
+        # Force color on all elements inside shadow DOM, including inline-styled content
+        f"*, *[style] {{ color:{p['inputText']} !important; }}"
+        # Override Anki's own anki-editable rule that sets color:white in dark mode
+        f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }}"
         f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
+        # Override any font tags or spans with inline color styles
+        f"font, font[color] {{ color:{p['inputText']} !important; }}"
+        f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
     )
 
     shadow_css_json = json.dumps(f":host {{ {shadow_css} }} {inner_css}")
 
     return (
         "(function(){"
-        "  document.querySelectorAll('anki-editable').forEach(function(el){"
-        "    if(el.shadowRoot){"
-        "      var sid='ankithemetwin-shadow';"
-        "      var existing=el.shadowRoot.getElementById(sid);"
-        "      if(existing){existing.remove();}"
-        "      var s=document.createElement('style');"
-        "      s.id=sid;"
-        f"      s.textContent={shadow_css_json};"
-        "      el.shadowRoot.appendChild(s);"
-        "    }"
-        "  });"
+        "  function styleShadowRoots(){"
+        "    document.querySelectorAll('anki-editable').forEach(function(el){"
+        "      if(el.shadowRoot){"
+        "        var sid='ankithemetwin-shadow';"
+        "        var existing=el.shadowRoot.getElementById(sid);"
+        "        if(existing){existing.remove();}"
+        "        var s=document.createElement('style');"
+        "        s.id=sid;"
+        f"        s.textContent={shadow_css_json};"
+        "        el.shadowRoot.appendChild(s);"
+        # Also patch Anki's own CSSStyleRules that target anki-editable
+        # Anki's RichTextStyles.svelte inserts rules like "anki-editable { color: white; }"
+        "        try{"
+        "          var sheets=el.shadowRoot.styleSheets||[];"
+        "          for(var i=0;i<sheets.length;i++){"
+        "            try{"
+        "              var rules=sheets[i].cssRules||[];"
+        "              for(var j=0;j<rules.length;j++){"
+        "                if(rules[j].selectorText&&rules[j].selectorText.indexOf('anki-editable')>=0){"
+        f"                  rules[j].style.color={json.dumps(p['inputText'])};"
+        f"                  rules[j].style.background={json.dumps(p['input'])};"
+        "                }"
+        "              }"
+        "            }catch(e2){}"
+        "          }"
+        "        }catch(e1){}"
+        "      }"
+        "    });"
+        "  }"
+        "  styleShadowRoots();"
+        # Also set up observer for dynamically added fields
+        "  if(!window._ankitwin_shadow_obs){"
+        "    window._ankitwin_shadow_obs=new MutationObserver(function(){setTimeout(styleShadowRoots,50);});"
+        "    window._ankitwin_shadow_obs.observe(document.body||document.documentElement,{childList:true,subtree:true});"
+        "  }"
         "})();"
     )
 
 def on_editor_did_load_note(editor):
-    """Inject shadow DOM styles when editor loads a note."""
+    """Inject shadow DOM styles when editor loads a note.
+
+    Uses multiple delayed injections because:
+    1. Anki's Svelte RichTextStyles component may set color AFTER our initial injection
+    2. The field rendering is async — fields may not have shadowRoot immediately
+    3. Anki may re-apply its own color rules after the note loads
+    """
     if is_follow_system_theme():
         return
     theme = get_active_theme()
     js = _build_shadow_dom_js(theme)
     try:
-        # Small delay to ensure fields are rendered
-        editor.web.eval(f"setTimeout(function(){{{js}}}, 200);")
+        # Multiple delays to catch Anki's async field rendering
+        # 100ms: initial attempt (fields may not be ready)
+        # 300ms: after Svelte components mount
+        # 600ms: after Anki's RichTextStyles applies its color rule
+        # 1200ms: final catch-all for slow renders
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 100);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 300);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 600);")
+        editor.web.eval(f"setTimeout(function(){{{js}}}, 1200);")
     except (RuntimeError, AttributeError):
         pass
 
@@ -1669,7 +1761,11 @@ def refresh_all_webviews():
             if hasattr(widget, 'editor') and widget.editor and hasattr(widget.editor, 'web'):
                 try:
                     widget.editor.web.eval(js)
-                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                    # Multiple delayed injections to catch Anki's async Svelte rendering
+                    # Anki's RichTextStyles.svelte sets color:white AFTER initial load in dark mode
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 100);")
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 400);")
+                    widget.editor.web.eval(f"setTimeout(function(){{{shadow_js}}}, 800);")
                 except (RuntimeError, AttributeError):
                     pass
             # Also refresh any other webviews inside the browser (e.g. card preview)
@@ -1679,7 +1775,9 @@ def refresh_all_webviews():
                     try:
                         wv.page().runJavaScript(js)
                         # Also inject shadow DOM styles into all browser webviews
-                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 200);")
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 100);")
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 400);")
+                        wv.page().runJavaScript(f"setTimeout(function(){{{shadow_js}}}, 800);")
                     except (RuntimeError, AttributeError):
                         pass
             except (ImportError, RuntimeError, AttributeError):
