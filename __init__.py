@@ -528,8 +528,7 @@ def inject_css(web_content, ctx):
             f"* {{ color:{p['inputText']} !important; }} "
             f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
         )
-        import json as _json
-        shadow_css_json = _json.dumps(shadow_css_content)
+        shadow_css_json = json.dumps(shadow_css_content)
         shadow_js = (
             "<script>"
             "(function(){"
@@ -1133,7 +1132,6 @@ def _build_shadow_dom_js(theme: Theme) -> str:
         f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
     )
 
-    import json
     shadow_css_json = json.dumps(f":host {{ {shadow_css} }} {inner_css}")
 
     return (
