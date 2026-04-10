@@ -160,11 +160,7 @@ def _restore_system_theme():
         from aqt.theme import theme_manager
         theme_manager.night_mode = theme_manager.default_night_mode()
     except (ImportError, AttributeError):
-        try:
-            from aqt.theme import theme_manager
-            # Fallback: just leave night_mode as-is, Anki will fix on next change
-        except (ImportError, AttributeError):
-            pass
+        pass  # Leave night_mode as-is, Anki will fix on next theme change
     # Clear QSS from all open top-level widgets
     try:
         for widget in QApplication.instance().topLevelWidgets():
@@ -1420,9 +1416,10 @@ def _style_qt_children(parent_widget, p: dict):
     # Style all QFrame (containers)
     for w in parent_widget.findChildren(QFrame):
         try:
-            # Don't override webview containers - only plain QFrames
-            cls_name = w.__class__.__name__
-            if cls_name in ("QFrame", "QWidget"):
+            # Skip webview containers — only style plain QFrame/QWidget instances.
+            # Check the exact type to avoid styling QWebEngineView or its wrappers.
+            cls = type(w)
+            if cls is QFrame or cls is QWidget:
                 w.setStyleSheet(f"background:{p['bg']}; color:{p['fg']};")
         except (RuntimeError, AttributeError):
             pass
