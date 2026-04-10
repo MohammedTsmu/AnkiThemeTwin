@@ -2666,11 +2666,44 @@ def set_background_pattern(pattern: str):
     apply_theme_everywhere(get_active_theme())
     tooltip(f"Background pattern: {pattern}")
 
+def _get_texture_color(p: dict) -> str:
+    """Compute a texture color guaranteed to contrast with the theme background.
+
+    Mixes the theme's border color 50 % toward the foreground color.
+    This keeps the texture harmonious with the palette while ensuring
+    visibility even when border and bg are nearly identical.
+    """
+    border, fg = p['border'], p['fg']
+    br, bgr, bb = int(border[1:3], 16), int(border[3:5], 16), int(border[5:7], 16)
+    fr, fgr, fb = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+    mr = int(br * 0.5 + fr * 0.5)
+    mg = int(bgr * 0.5 + fgr * 0.5)
+    mb = int(bb * 0.5 + fb * 0.5)
+    return f"#{mr:02X}{mg:02X}{mb:02X}"
+
+
+def _get_texture_accent(p: dict) -> str:
+    """Compute an accent-based texture color with guaranteed contrast.
+
+    Mixes the theme's accent color 60 % toward the foreground color so
+    accent-tinted blobs stay visible on every background.
+    """
+    accent, fg = p['accent'], p['fg']
+    ar, ag, ab = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
+    fr, fgr, fb = int(fg[1:3], 16), int(fg[3:5], 16), int(fg[5:7], 16)
+    mr = int(ar * 0.6 + fr * 0.4)
+    mg = int(ag * 0.6 + fgr * 0.4)
+    mb = int(ab * 0.6 + fb * 0.4)
+    return f"#{mr:02X}{mg:02X}{mb:02X}"
+
+
 def get_pattern_css(p: dict, pattern: str) -> str:
     """Generate CSS for background patterns."""
     if pattern == "none":
         return ""
-    elif pattern == "dots":
+    tc = _get_texture_color(p)
+    ta = _get_texture_accent(p)
+    if pattern == "dots":
         return f"""
         body::before {{
             content: '';
@@ -2679,7 +2712,7 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: radial-gradient(circle, {p['border']}55 1px, transparent 1px);
+            background-image: radial-gradient(circle, {tc}55 1px, transparent 1px);
             background-size: 20px 20px;
             pointer-events: none;
             z-index: -1;
@@ -2695,8 +2728,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             width: 100%;
             height: 100%;
             background-image:
-                linear-gradient(0deg, {p['border']}40 1px, transparent 1px),
-                linear-gradient(90deg, {p['border']}40 1px, transparent 1px);
+                linear-gradient(0deg, {tc}40 1px, transparent 1px),
+                linear-gradient(90deg, {tc}40 1px, transparent 1px);
             background-size: 30px 30px;
             pointer-events: none;
             z-index: -1;
@@ -2715,8 +2748,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
                 0deg,
                 transparent,
                 transparent 2px,
-                {p['border']}35 2px,
-                {p['border']}35 4px
+                {tc}35 2px,
+                {tc}35 4px
             );
             pointer-events: none;
             z-index: -1;
@@ -2731,8 +2764,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             left: 0;
             width: 100%;
             height: 100%;
-            background-image: radial-gradient(circle at 20% 50%, {p['accent']}25 0%, transparent 50%),
-                              radial-gradient(circle at 80% 80%, {p['accent']}25 0%, transparent 50%);
+            background-image: radial-gradient(circle at 20% 50%, {ta}25 0%, transparent 50%),
+                              radial-gradient(circle at 80% 80%, {ta}25 0%, transparent 50%);
             pointer-events: none;
             z-index: -1;
         }}
@@ -2750,8 +2783,8 @@ def get_pattern_css(p: dict, pattern: str) -> str:
                 45deg,
                 transparent,
                 transparent 10px,
-                {p['border']}38 10px,
-                {p['border']}38 11px
+                {tc}38 10px,
+                {tc}38 11px
             );
             pointer-events: none;
             z-index: -1;
@@ -2771,15 +2804,15 @@ def get_pattern_css(p: dict, pattern: str) -> str:
                     45deg,
                     transparent,
                     transparent 10px,
-                    {p['border']}30 10px,
-                    {p['border']}30 11px
+                    {tc}30 10px,
+                    {tc}30 11px
                 ),
                 repeating-linear-gradient(
                     -45deg,
                     transparent,
                     transparent 10px,
-                    {p['border']}30 10px,
-                    {p['border']}30 11px
+                    {tc}30 10px,
+                    {tc}30 11px
                 );
             pointer-events: none;
             z-index: -1;
@@ -2795,10 +2828,10 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             width: 100%;
             height: 100%;
             background-image:
-                linear-gradient(0deg, {p['border']}28 1px, transparent 1px),
-                linear-gradient(90deg, {p['border']}28 1px, transparent 1px),
-                radial-gradient(ellipse at 30% 40%, {p['accent']}18 0%, transparent 70%),
-                radial-gradient(ellipse at 70% 60%, {p['border']}18 0%, transparent 70%);
+                linear-gradient(0deg, {tc}28 1px, transparent 1px),
+                linear-gradient(90deg, {tc}28 1px, transparent 1px),
+                radial-gradient(ellipse at 30% 40%, {ta}18 0%, transparent 70%),
+                radial-gradient(ellipse at 70% 60%, {tc}18 0%, transparent 70%);
             background-size: 25px 25px, 25px 25px, 100% 100%, 100% 100%;
             pointer-events: none;
             z-index: -1;
@@ -2816,15 +2849,15 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             background-image:
                 repeating-linear-gradient(
                     0deg,
-                    {p['border']}30,
-                    {p['border']}30 1px,
+                    {tc}30,
+                    {tc}30 1px,
                     transparent 1px,
                     transparent 4px
                 ),
                 repeating-linear-gradient(
                     90deg,
-                    {p['border']}30,
-                    {p['border']}30 1px,
+                    {tc}30,
+                    {tc}30 1px,
                     transparent 1px,
                     transparent 4px
                 );
@@ -2842,10 +2875,10 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             width: 100%;
             height: 100%;
             background-image:
-                linear-gradient(45deg, {p['border']}35 25%, transparent 25%),
-                linear-gradient(-45deg, {p['border']}35 25%, transparent 25%),
-                linear-gradient(45deg, transparent 75%, {p['border']}35 75%),
-                linear-gradient(-45deg, transparent 75%, {p['border']}35 75%);
+                linear-gradient(45deg, {tc}35 25%, transparent 25%),
+                linear-gradient(-45deg, {tc}35 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, {tc}35 75%),
+                linear-gradient(-45deg, transparent 75%, {tc}35 75%);
             background-size: 30px 30px;
             background-position: 0 0, 0 15px, 15px -15px, -15px 0;
             pointer-events: none;
@@ -2862,14 +2895,14 @@ def get_pattern_css(p: dict, pattern: str) -> str:
             width: 100%;
             height: 100%;
             background-image:
-                radial-gradient(ellipse at 0% 50%, {p['border']}35 0%, transparent 60%),
-                radial-gradient(ellipse at 100% 50%, {p['border']}35 0%, transparent 60%),
+                radial-gradient(ellipse at 0% 50%, {tc}35 0%, transparent 60%),
+                radial-gradient(ellipse at 100% 50%, {tc}35 0%, transparent 60%),
                 repeating-linear-gradient(
                     0deg,
                     transparent,
                     transparent 18px,
-                    {p['border']}28 18px,
-                    {p['border']}28 20px
+                    {tc}28 18px,
+                    {tc}28 20px
                 );
             pointer-events: none;
             z-index: -1;
@@ -3765,7 +3798,7 @@ def show_visual_enhancements_dialog():
 
         # Preview square
         preview = QLabel()
-        pix = _create_pattern_preview(value, p['bg'], p['border'], p['accent'], 48)
+        pix = _create_pattern_preview(value, p['bg'], _get_texture_color(p), _get_texture_accent(p), 48)
         preview.setPixmap(pix)
         preview.setFixedSize(52, 52)
         preview.setStyleSheet(
