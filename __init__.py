@@ -863,11 +863,22 @@ def css_vars(p):
         f"  --state-buried: {p.get('stateBuried', '#D97706')} !important;"
         f"  --state-suspended: {p.get('stateSuspended', '#EAB308')} !important;"
         f"  --state-marked: {p.get('stateMarked', '#6366F1')} !important;"
+        # Non-color properties used by Anki's Svelte components
+        f"  --font-size: {font_size}px !important;"
+        f"  --border-radius: 5px !important;"
+        f"  --border-radius-medium: 12px !important;"
+        f"  --border-radius-large: 15px !important;"
+        f"  --transition: 180ms !important;"
+        f"  --transition-medium: 500ms !important;"
+        f"  --transition-slow: 1000ms !important;"
+        f"  --blur: 20px !important;"
         # Feature 8: Theme-aware card template helper variables
         + template_helper_css +
         "}"
         # Override nightMode/night_mode body classes that Anki applies in dark mode
         # This ensures our theme colors win even when OS is in dark mode
+        # NOTE: We only override UI-level elements, NOT card content elements
+        # (p, span, div etc.) which are controlled by user card templates
         f"body.nightMode, body.night_mode, .nightMode, .night_mode {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
         "}}"
@@ -895,40 +906,37 @@ def css_vars(p):
         f".nightMode [contenteditable], .night_mode [contenteditable] {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         "}}"
-        # Base styles with smooth transitions
+        # Base styles — set background/color on html/body but do NOT force
+        # font-family, line-height, or letter-spacing with !important here
+        # because card templates set their own typography via the .card class
         "html, body {"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        f'  font-family:{font_family} !important;'
+        f'  font-family:{font_family};'
         f"  line-height:{line_height}; font-size:{font_size}px;"
         f"  letter-spacing:{letter_spacing}px;"
         "  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;"
         f"  {transitions}"
         "}"
-        # All text elements
-        f"p, span, div, li, label {{ color:{p['fg']} !important; }}"
         # Links and selection with transitions
         f"a {{ color:{p['accent']} !important; text-decoration:underline; {transitions} }}"
-        f"a:hover {{ color:{p['hover']} !important; text-shadow:0 0 8px {p['accent']}44; }}"
+        f"a:hover {{ color:{p['hover']} !important; }}"
         f"::selection {{ background:{p['selection']}; color:{p['fg']}; }}"
-        # Buttons with enhanced visual effects
+        # Buttons — style like Anki's native buttons without transform effects
         f"button, .btn, input[type='button'], input[type='submit'] {{"
-        f"  background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important;"
+        f"  background:{p['button']} !important;"
         f"  color:{p['buttonText']} !important;"
-        f"  border:1px solid {p['border']} !important; border-radius:6px;"
+        f"  border:1px solid {p['border']} !important; border-radius:5px;"
         f"  padding:6px 12px; cursor:pointer;"
-        f"  box-shadow:0 2px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);"
         f"  {transitions}"
         "}"
         f"button:hover, .btn:hover {{"
-        f"  background:linear-gradient(180deg, {p['hover']} 0%, {p['button']} 100%) !important;"
-        f"  box-shadow:0 4px 8px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);"
-        f"  transform:translateY(-1px);"
+        f"  background:{p['hover']} !important;"
+        f"  border-color:{p['accent']} !important;"
         "}}"
         f"button:active, .btn:active {{"
-        f"  transform:translateY(1px);"
-        f"  box-shadow:0 1px 2px rgba(0,0,0,0.1) inset;"
+        f"  background:{p['selection']} !important;"
         "}}"
-        # Input fields with enhanced focus effects
+        # Input fields — style without layout-shifting transform effects
         f"input, textarea, select {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         f"  border:1px solid {p['border']} !important; border-radius:4px;"
@@ -937,88 +945,72 @@ def css_vars(p):
         "}"
         f"input:focus, textarea:focus, select:focus {{"
         f"  border-color:{p['accent']} !important; outline:none;"
-        f"  box-shadow:0 0 0 3px {p['accent']}33, 0 4px 6px rgba(0,0,0,0.1);"
-        f"  transform:scale(1.01);"
+        f"  box-shadow:0 0 0 3px {p['accent']}33;"
         "}}"
-        # Contenteditable divs (Anki editor fields) with enhanced styling
+        # Contenteditable divs (Anki editor fields)
         f"[contenteditable='true'], [contenteditable='plaintext-only'] {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         f"  border:1px solid {p['border']} !important; border-radius:4px;"
         f"  padding:8px !important; min-height:60px !important;"
         f"  {transitions}"
-        f"  box-shadow:0 1px 3px rgba(0,0,0,0.05);"
         "}"
         f"[contenteditable='true']:focus, [contenteditable='plaintext-only']:focus {{"
         f"  border-color:{p['accent']} !important; outline:none !important;"
-        f"  box-shadow:0 0 0 3px {p['accent']}33, 0 4px 6px rgba(0,0,0,0.1) !important;"
+        f"  box-shadow:0 0 0 3px {p['accent']}33 !important;"
         "}"
-        # Checkboxes and radio buttons with transitions
+        # Checkboxes and radio buttons
         f"input[type='checkbox'], input[type='radio'] {{"
         f"  border:2px solid {p['border']} !important; background:{p['input']} !important;"
         f"  {transitions}"
         "}"
-        # Card content (reviewer) with depth and animation
+        # Card content (reviewer) — only set background and color like native Anki
+        # Do NOT add border-radius, padding, box-shadow, or animations that
+        # would alter the card layout from what the user's card template defines
         f".card, .card1, .card2, .card3 {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
-        f"  border-radius:8px; padding:20px;"
-        f"  box-shadow:0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);"
-        f"  {transitions}"
         "}}"
-        # Card fade-in animation
-        "@keyframes cardFadeIn {"
-        "  from { opacity:0; transform:translateY(10px); }"
-        "  to { opacity:1; transform:translateY(0); }"
-        "}"
-        f".card {{ animation:cardFadeIn 0.3s ease-out; }}"
         # Editor fields with subtle shadow
         f".field {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         f"  border:1px solid {p['border']} !important;"
         f"  border-radius:4px; padding:8px;"
-        f"  box-shadow:0 1px 3px rgba(0,0,0,0.05);"
         f"  {transitions}"
         "}}"
-        # Tables with enhanced styling
+        # Tables — match Anki's native table styling
         f"table {{ background:{p['bg']} !important; color:{p['fg']} !important; border-collapse:separate; border-spacing:0; }}"
-        f"th {{ background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important; color:{p['buttonText']} !important;"
+        f"th {{ background:{p['button']} !important; color:{p['buttonText']} !important;"
         f"  border:1px solid {p['border']} !important; padding:8px; font-weight:600; }}"
         f"td {{ border:1px solid {p['border']} !important; padding:6px; color:{p['fg']} !important; {transitions} }}"
-        f"tr:hover {{ background:{p['hover']} !important; box-shadow:0 2px 4px rgba(0,0,0,0.05); }}"
+        f"tr:hover {{ background:{p['hover']} !important; }}"
         f"tr.drag-hover {{ background:{p['selection']} !important; }}"
         # Lists
         f"ul, ol {{ color:{p['fg']} !important; }}"
         f"li {{ color:{p['fg']} !important; }}"
-        # Code blocks with enhanced styling
+        # Code blocks
         f"code, pre {{"
         f"  background:{p['input']} !important; color:{p['fg']} !important;"
         f"  border:1px solid {p['border']} !important; border-radius:4px;"
         f"  padding:2px 4px; font-family:monospace;"
-        f"  box-shadow:0 1px 2px rgba(0,0,0,0.05);"
         "}"
-        # Headings with subtle accents
+        # Headings
         f"h1, h2, h3, h4, h5, h6 {{ color:{p['fg']} !important; font-weight:600; }}"
-        f"h1 {{ border-bottom:2px solid {p['accent']}; padding-bottom:8px; }}"
-        f"h2 {{ border-bottom:1px solid {p['border']}; padding-bottom:6px; }}"
         # Horizontal rules
-        f"hr {{ border:0; height:2px; background:linear-gradient(90deg, transparent, {p['border']}, transparent); }}"
-        # Scrollbars with enhanced styling
+        f"hr {{ border:0; height:1px; background:{p['border']}; }}"
+        # Scrollbars
         f"::-webkit-scrollbar {{ width:12px; height:12px; }}"
-        f"::-webkit-scrollbar-track {{ background:{p['bg']}; border-radius:6px; }}"
+        f"::-webkit-scrollbar-track {{ background:{p['bg']}; }}"
         f"::-webkit-scrollbar-thumb {{"
-        f"  background:linear-gradient(180deg, {p['border']} 0%, {p['muted']} 100%);"
+        f"  background:{p['border']};"
         f"  border-radius:6px; border:2px solid {p['bg']};"
-        f"  {transitions}"
         "}}"
         f"::-webkit-scrollbar-thumb:hover {{"
-        f"  background:linear-gradient(180deg, {p['muted']} 0%, {p['accent']} 100%);"
-        f"  box-shadow:0 0 6px {p['accent']}33;"
+        f"  background:{p['muted']};"
         "}}"
-        # Dropdown menus and autocomplete with animations
+        # Dropdown menus and autocomplete
         f".autocomplete, .dropdown-menu {{"
         f"  background:{p['input']} !important; color:{p['inputText']} !important;"
         f"  border:1px solid {p['border']} !important;"
-        f"  box-shadow:0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1);"
-        f"  border-radius:6px; overflow:hidden;"
+        f"  border-radius:5px; overflow:hidden;"
         "}"
         f".autocomplete-item, .dropdown-item {{"
         f"  color:{p['fg']} !important; padding:8px 12px;"
@@ -1026,25 +1018,17 @@ def css_vars(p):
         "}"
         f".autocomplete-item:hover, .dropdown-item:hover {{"
         f"  background:{p['hover']} !important; color:{p['fg']} !important;"
-        f"  padding-left:16px;"
         "}"
         f".autocomplete-item.selected, .dropdown-item.selected {{"
         f"  background:{p['selection']} !important; color:{p['fg']} !important;"
-        f"  border-left:3px solid {p['accent']};"
         "}"
-        # Modal dialogs with enhanced depth
-        "@keyframes modalFadeIn {"
-        "  from { opacity:0; transform:scale(0.95); }"
-        "  to { opacity:1; transform:scale(1); }"
-        "}"
+        # Modal dialogs
         f".modal, .overlay {{"
         f"  background:{p['bg']} !important; color:{p['fg']} !important;"
         f"  border:1px solid {p['border']} !important; border-radius:8px;"
-        f"  box-shadow:0 10px 25px rgba(0,0,0,0.2), 0 6px 12px rgba(0,0,0,0.15);"
-        "  animation:modalFadeIn 0.2s ease-out;"
         "}"
         f".modal-header {{"
-        f"  background:linear-gradient(180deg, {p['button']} 0%, {p['hover']} 100%) !important;"
+        f"  background:{p['button']} !important;"
         f"  color:{p['buttonText']} !important; border-bottom:1px solid {p['border']} !important;"
         f"  border-radius:8px 8px 0 0; padding:12px 16px;"
         "}}"
@@ -1109,24 +1093,21 @@ def inject_css(web_content, ctx):
     # Reviewer - card display
     elif "Reviewer" in ctx_name or "Review" in ctx_name:
         context_css += f"""
-        /* Reviewer specific - override nightMode comprehensively */
-        #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
+        /* Reviewer specific — style the page and Anki UI elements.
+           Card content inherits color from .card which is set in base CSS.
+           We do NOT force color on generic elements (p, span, div, li)
+           because user card templates control their own formatting. */
+        #qa {{ background:{p['bg']} !important; }}
         .nightMode .card, .night_mode .card {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
-        .nightMode #qa, .night_mode #qa {{ background:{p['bg']} !important; color:{p['fg']} !important; }}
-        .nightMode #answer, .night_mode #answer {{ color:{p['fg']} !important; }}
+        .nightMode #qa, .night_mode #qa {{ background:{p['bg']} !important; }}
         .nightMode .replay-button, .night_mode .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
-        #answer {{ color:{p['fg']} !important; }}
         .replay-button {{ background:{p['button']} !important; border:1px solid {p['border']} !important; }}
         .typeGood {{ color:{p['accent']} !important; }}
         .typeBad {{ color:#E74C3C !important; }}
         .typeMissed {{ color:#F39C12 !important; }}
-        /* Ensure all text in reviewer is visible */
-        .nightMode p, .nightMode span, .nightMode div, .nightMode li,
-        .night_mode p, .night_mode span, .night_mode div, .night_mode li {{
-            color:{p['fg']} !important;
-        }}
-        /* Bottom bar answer buttons */
+        /* Bottom bar answer buttons and stats */
         .nightMode .stattxt, .night_mode .stattxt {{ color:{p['fg']} !important; }}
+        .stattxt {{ color:{p['fg']} !important; }}
         """
 
     # Editor or AddCards - note editing
@@ -1221,11 +1202,10 @@ def inject_css(web_content, ctx):
         /* Rich-text-input container (Anki's Svelte component) */
         .rich-text-input {{ background-color:{p['input']} !important; color:{p['inputText']} !important; }}
         .rich-text-editable {{ color:{p['inputText']} !important; }}
-        /* Force ALL text inside editor fields to use theme color */
-        .field *, .EditorField *, .editor-field *, .rich-text-input *, .rich-text-editable * {{ color:{p['inputText']} !important; }}
-        /* Override content with inline style colors (from card templates) */
-        .field *[style], .EditorField *[style], .editor-field *[style] {{ color:{p['inputText']} !important; }}
-        .field font, .EditorField font, .editor-field font {{ color:{p['inputText']} !important; }}
+        /* Set default text color on editor field containers, but do NOT
+           force color on all child elements (*) or inline-styled content
+           because users may have formatted text with colors in their notes.
+           Anki's native editor preserves user formatting. */
         /* Tag editor in browser */
         .tag-editor {{ background:{p['bg']} !important; border:1px solid {p['border']} !important; }}
         .tag-editor input {{ background:{p['input']} !important; color:{p['inputText']} !important; border:none !important; }}
@@ -1317,14 +1297,10 @@ def inject_css(web_content, ctx):
             f"letter-spacing:{get_letter_spacing()}px !important; "
             f"caret-color:{p['fg']} !important; "
             f"padding:8px !important; }} "
-            # Force color on all elements, including inline-styled content
-            f"*, *[style] {{ color:{p['inputText']} !important; }} "
             # Override Anki's own anki-editable rule (RichTextStyles sets color:white in dark mode)
+            # but do NOT force color on all child elements — preserve user formatting
             f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }} "
-            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }} "
-            # Override legacy font tags and inline color spans from card content
-            f"font, font[color] {{ color:{p['inputText']} !important; }} "
-            f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
+            f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
         )
         shadow_css_json = json.dumps(shadow_css_content)
         input_text_json = json.dumps(p['inputText'])
@@ -2285,14 +2261,10 @@ def _build_shadow_dom_js(theme: Theme) -> str:
         f"padding:8px !important;"
     )
     inner_css = (
-        # Force color on all elements inside shadow DOM, including inline-styled content
-        f"*, *[style] {{ color:{p['inputText']} !important; }}"
         # Override Anki's own anki-editable rule that sets color:white in dark mode
+        # Do NOT force color on all child elements — preserve user formatting
         f"anki-editable {{ color:{p['inputText']} !important; background:{p['input']} !important; }}"
         f"::selection {{ background:{p['selection']} !important; color:{p['fg']} !important; }}"
-        # Override any font tags or spans with inline color styles
-        f"font, font[color] {{ color:{p['inputText']} !important; }}"
-        f"span[style*='color'] {{ color:{p['inputText']} !important; }}"
     )
 
     shadow_css_json = json.dumps(f":host {{ {shadow_css} }} {inner_css}")
